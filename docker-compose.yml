@@ -1,0 +1,26 @@
+version: "3"
+
+services:
+  heos-track-listener:
+    build:
+      context: heos-track-listener
+    image: heos-track-listener:latest
+    command: npm start
+    environment:
+      HEOS_SUBMIT_BASE_URL: http://heos-track-scrobbler
+    env_file:
+      - heos-track-listener/.env
+    restart: always
+    depends_on:
+      - heos-track-scrobbler
+  heos-track-scrobbler:
+    build:
+      context: heos-track-scrobbler
+    image: heos-track-scrobbler:latest
+    command: flask run --host=0.0.0.0 --port=80
+    environment:
+      PYTHONUNBUFFERED: 1
+      FLASK_APP: scrobbler.py
+    env_file:
+      - heos-track-scrobbler/.env
+    restart: always

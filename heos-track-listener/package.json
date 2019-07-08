@@ -1,0 +1,17 @@
+{
+  "name": "heos-track-listener",
+  "version": "0.0.1",
+  "description": "Now playing info listener for HEOS scrobbler",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Samuli Kohomäki",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^0.19.0",
+    "heos-api": "^3.9.0",
+    "moment": "^2.24.0"
+  }
+}
