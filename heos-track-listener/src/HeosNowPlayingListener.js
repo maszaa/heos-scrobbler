@@ -33,7 +33,9 @@ class HeosTrackListener {
     const now = moment().unix();
 
     // HEOS device emits duplicate 'player_now_playing_changed' events when manually changing track. Prevent scrobbling those.
-    if (HeosTrackListener.nowPlaying && HeosTrackListener.nowPlaying.startedAt && now - HeosTrackListener.nowPlaying.startedAt > 10) {
+    if (HeosTrackListener.nowPlaying &&
+        HeosTrackListener.nowPlaying.startedAt &&
+        now - HeosTrackListener.nowPlaying.startedAt > 10) {
       await HeosTrackListener.submitTrack();
     }
 
@@ -44,34 +46,40 @@ class HeosTrackListener {
   }
 
   static async submitTrack() {
-    if (HeosTrackListener.nowPlaying && HeosTrackListener.nowPlaying.title && HeosTrackListener.nowPlaying.artist) {
+    if (HeosTrackListener.nowPlaying &&
+        HeosTrackListener.nowPlaying.title &&
+        HeosTrackListener.nowPlaying.artist) {
       const finishedAt = moment().unix();
       HeosTrackListener.unsubmittedTracks[finishedAt] = HeosTrackListener.nowPlaying;
       HeosTrackListener.nowPlaying = null;
 
-      await Promise.all(Object.keys(HeosTrackListener.unsubmittedTracks).map((key) => {
-        return axios({
-          method: 'POST',
-          url: `${process.env.HEOS_SUBMIT_BASE_URL}/scrobble`,
-          data: {
-            ...HeosTrackListener.unsubmittedTracks[key],
-            finishedAt: key
-          }
-        })
-          .then((response) => {
-            console.log('TRACK SUBMIT RESPONSE', response.data);
-            delete HeosTrackListener.unsubmittedTracks[key];
+      await Promise.all(Object.keys(HeosTrackListener.unsubmittedTracks)
+        .map((key) => {
+          return axios({
+            method: 'POST',
+            url: `${process.env.HEOS_SUBMIT_BASE_URL}/scrobble`,
+            data: {
+              ...HeosTrackListener.unsubmittedTracks[key],
+              finishedAt: key
+            }
           })
-          .catch((err) => {
-            console.error('TRACK SUBMIT ERROR', err.response.status, err.response.data);
-          });
-      }));
+            .then((response) => {
+              console.log('TRACK SUBMIT RESPONSE', response.data);
+              delete HeosTrackListener.unsubmittedTracks[key];
+            })
+            .catch((err) => {
+              console.error('TRACK SUBMIT ERROR', err.response.status, err.response.data);
+            });
+        })
+      );
 
     }
   }
 
   static async submitNowPlaying() {
-    if (HeosTrackListener.nowPlaying && HeosTrackListener.nowPlaying.title && HeosTrackListener.nowPlaying.artist) {
+    if (HeosTrackListener.nowPlaying &&
+        HeosTrackListener.nowPlaying.title &&
+        HeosTrackListener.nowPlaying.artist) {
       return axios({
         method: 'POST',
         url: `${process.env.HEOS_SUBMIT_BASE_URL}/nowPlaying`,
