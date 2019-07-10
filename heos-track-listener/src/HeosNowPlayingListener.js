@@ -11,17 +11,24 @@ class HeosTrackListener {
     connection.write('system', 'prettify_json_response', { enable: 'on' })
       .write('system', 'register_for_change_events', { enable: 'on' })
       .on({commandGroup: 'player', command: 'get_now_playing_media'}, HeosTrackListener.handleTrack)
+      .on({commandGroup: 'player', command: 'get_player_info'}, HeosTrackListener.handlePlayerInfo)
       .on({commandGroup: 'event', command: 'player_now_playing_changed'}, (data) => {
-        connection.write('player', 'get_now_playing_media', { pid: data.heos.message.split('=').pop() })
+        const pid = data.heos.message.split('=').pop();
+        connection.write('player', 'get_player_info', { pid: pid })
+          .write('player', 'get_now_playing_media', { pid: pid });
       });
 
     axios.defaults.headers.common['Content-Type'] = 'application/json;charset=UTF-8';
     axios.defaults.headers.common['Access-Control-Allow-Origin'] = '*';
   }
 
+  static handlePlayerInfo(data) {
+    HeosTrackListener.playerName = data.payload.name;
+  }
+
   static async handleTrack(data) {
     data = data.payload;
-    console.log('HEOS NOW PLAYING', data);
+    console.log(`${HeosTrackListener.playerName || 'HEOS DEVICE'} IS NOW PLAYING`, data);
 
     const now = moment().unix();
 
@@ -77,6 +84,7 @@ class HeosTrackListener {
   }
 }
 
+HeosTrackListener.playerName = null;
 HeosTrackListener.nowPlaying = null;
 HeosTrackListener.unsubmittedTracks = {};
 
