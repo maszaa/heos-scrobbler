@@ -37,7 +37,7 @@ class HeosTrackListener {
       await HeosTrackListener.submitTrack();
     }
 
-    if (data.type === 'song') {
+    if (data.type === 'song' || !process.env.SUBMIT_ONLY_USB_AND_NETWORK) {
       HeosTrackListener.nowPlaying = new HeosTrack(data.song, data.artist, data.album, now);
       await HeosTrackListener.submitNowPlaying();
     }
