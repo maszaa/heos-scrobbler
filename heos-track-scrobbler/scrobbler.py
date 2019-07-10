@@ -20,10 +20,10 @@ def scrobble():
     data = request.json
 
     last_fm_network.scrobble(
-      artist=data["artist"],
-      title=data["title"],
-      timestamp=int(data["finishedAt"]),
-      album=data["album"]
+      artist=data.get("artist"),
+      title=data.get("title"),
+      timestamp=int(data.get("finishedAt")),
+      album=data.get("album")
     )
 
     return make_response(jsonify(data), 200)
@@ -46,9 +46,9 @@ def now_playing():
     data = request.json
 
     last_fm_network.update_now_playing(
-      artist=data["artist"],
-      title=data["title"],
-      album=data["album"]
+      artist=data.get("artist"),
+      title=data.get("title"),
+      album=data.get("album")
     )
 
     return make_response(jsonify(data), 200)
