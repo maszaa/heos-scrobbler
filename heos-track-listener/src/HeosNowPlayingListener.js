@@ -6,17 +6,28 @@ const HeosTrack = require('./HeosTrack');
 
 class HeosTrackListener {
   static async initialize() {
-    const connection = await heos.connect(process.env.HEOS_DEVICE_ADDRESS);
+    heos.discoverDevices({timeout: 10000}, async (address) => {
+      console.log(`Found HEOS device with IP address ${address}`);
 
-    connection.write('system', 'prettify_json_response', { enable: 'on' })
-      .write('system', 'register_for_change_events', { enable: 'on' })
-      .on({commandGroup: 'player', command: 'get_now_playing_media'}, HeosTrackListener.handleTrack)
-      .on({commandGroup: 'player', command: 'get_player_info'}, HeosTrackListener.handlePlayerInfo)
-      .on({commandGroup: 'event', command: 'player_now_playing_changed'}, (data) => {
-        const pid = data.heos.message.split('=').pop();
-        connection.write('player', 'get_player_info', { pid: pid })
-          .write('player', 'get_now_playing_media', { pid: pid });
-      });
+      const connection = await heos.connect(address)
+        .catch((err) => {
+          console.error(`Following error occured while connecting to HEOS device with IP address ${address}:`, err);
+        });
+
+      if (!connection.closed) {
+        console.log(`Connected to HEOS device with IP adress ${address}`)
+
+        connection.write('system', 'prettify_json_response', { enable: 'on' })
+          .write('system', 'register_for_change_events', { enable: 'on' })
+          .on({commandGroup: 'player', command: 'get_now_playing_media'}, HeosTrackListener.handleTrack)
+          .on({commandGroup: 'player', command: 'get_player_info'}, HeosTrackListener.handlePlayerInfo)
+          .on({commandGroup: 'event', command: 'player_now_playing_changed'}, (data) => {
+            const pid = data.heos.message.split('=').pop();
+            connection.write('player', 'get_player_info', { pid: pid })
+              .write('player', 'get_now_playing_media', { pid: pid });
+          });
+      }
+    })
 
     axios.defaults.headers.common['Content-Type'] = 'application/json;charset=UTF-8';
     axios.defaults.headers.common['Access-Control-Allow-Origin'] = '*';

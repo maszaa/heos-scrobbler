@@ -7,10 +7,11 @@ services:
     image: heos-track-listener:latest
     command: npm start
     environment:
-      HEOS_SUBMIT_BASE_URL: http://heos-track-scrobbler
+      HEOS_SUBMIT_BASE_URL: http://localhost:5000
     env_file:
       - heos-track-listener/.env
     restart: always
+    network_mode: "host"
     depends_on:
       - heos-track-scrobbler
   heos-track-scrobbler:
@@ -24,3 +25,4 @@ services:
     env_file:
       - heos-track-scrobbler/.env
     restart: always
+    network_mode: "host"
