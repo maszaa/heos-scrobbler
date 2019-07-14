@@ -93,6 +93,9 @@ class HeosTrackListener {
                 })
                 .catch((err) => {
                   if (err.response) {
+                    if (err.response.status === 400 && err.response.data.invalid === true ) {
+                      delete HeosTrackListener.unsubmittedTracks[pid][finishedAt];
+                    }
                     console.error('TRACK SUBMIT ERROR', err.response.status, err.response.data);
                   } else {
                     console.error('TRACK SUBMIT ERROR', err);
@@ -101,7 +104,6 @@ class HeosTrackListener {
             })
         })
       );
-
     }
   }
 
