@@ -52,7 +52,7 @@ class HeosTrackListener {
     // HEOS device emits duplicate 'player_now_playing_changed' events when manually changing track. Prevent scrobbling those.
     if (HeosTrackListener.nowPlaying[pid] &&
         HeosTrackListener.nowPlaying[pid].startedAt &&
-        now - HeosTrackListener.nowPlaying[pid].startedAt > 10) {
+        now - HeosTrackListener.nowPlaying[pid].startedAt > parseInt(process.env.MINIMUM_TIME_BETWEEN_NOW_PLAYING_CHANGE || 10, 10)) {
       await HeosTrackListener.submitTrack(pid);
     }
 
