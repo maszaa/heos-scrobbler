@@ -68,6 +68,10 @@ class HeosTrackListener {
         HeosTrackListener.nowPlaying[pid].artist) {
       const finishedAt = moment().unix();
 
+      if (!HeosTrackListener.unsubmittedTracks[pid]) {
+        HeosTrackListener.unsubmittedTracks[pid] = {};
+      }
+
       HeosTrackListener.unsubmittedTracks[pid][finishedAt] = HeosTrackListener.nowPlaying[pid];
       HeosTrackListener.nowPlaying[pid] = null;
 
@@ -85,7 +89,7 @@ class HeosTrackListener {
               })
                 .then((response) => {
                   console.log('TRACK SUBMIT RESPONSE', response.data);
-                  delete HeosTrackListener.unsubmittedTracks[pid][key];
+                  delete HeosTrackListener.unsubmittedTracks[pid][finishedAt];
                 })
                 .catch((err) => {
                   if (err.response) {
