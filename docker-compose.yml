@@ -18,7 +18,7 @@ services:
     build:
       context: heos-track-scrobbler
     image: heos-track-scrobbler:latest
-    command: gunicorn -b 127.0.0.1:5000 scrobbler:app
+    command: gunicorn -w $WORKERS -b 127.0.0.1:5000 scrobbler:app
     environment:
       PYTHONUNBUFFERED: 1
       FLASK_APP: scrobbler.py
