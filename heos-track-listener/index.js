@@ -19,3 +19,7 @@ HeosNowPlayingListener.initialize({informOnDiscovery: true})
         await HeosNowPlayingListener.initialize();
       });
   })
+  .catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
