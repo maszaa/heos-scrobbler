@@ -1,4 +1,5 @@
 import os
+import sys
 
 import pylast
 from mongoengine import connect
@@ -78,9 +79,13 @@ def initialize_collection_watchers(last_fm_scrobbler):
 
 
 def main():
-  initialize_database_connection()
-  last_fm_scrobbler = initialize_last_fm_scrobbling()
-  initialize_collection_watchers(last_fm_scrobbler)
+  try:
+    initialize_database_connection()
+    last_fm_scrobbler = initialize_last_fm_scrobbling()
+    initialize_collection_watchers(last_fm_scrobbler)
+  except Exception as err:
+    print(err)
+    sys.exit(1)
 
 
 if __name__ == "__main__":

@@ -10,12 +10,15 @@ class LastFmScrobbler(object):
     self.last_fm_user = last_fm_user
 
   def _log_error(self, message, traceback_info):
-    error = Error(
-      message=message,
-      info={str(key): value.strip() for (key, value) in traceback_info.split("\n")}
-    )
-    error.save()
-    print("Error occured, id: {}".format(error.id))
+    try:
+      error = Error(
+        message=message,
+        info={str(key): value.strip() for (key, value) in traceback_info.split("\n")}
+      )
+      error.save()
+      print("Error occured, id: {}".format(error.id))
+    except Exception as err:
+      print(err)
 
   def _scrobble_length_is_valid(self, heos_played_track):
     if heos_played_track.duration:
@@ -35,34 +38,40 @@ class LastFmScrobbler(object):
     return True
 
   def scrobble(self):
-    heos_played_tracks = HeosPlayedTrack.objects(
-      submit__track=True,
-      submitStatus__track=False,
-      finishedAt__exists=True
-    )
+    try:
+      heos_played_tracks = HeosPlayedTrack.objects(
+        submit__track=True,
+        submitStatus__track=False,
+        finishedAt__exists=True
+      )
 
-    for heos_played_track in heos_played_tracks:
-      try:
-        if (self._required_scrobble_data_exists(heos_played_track, is_scrobble=True) is True and
-            self._scrobble_length_is_valid(heos_played_track) is True):
-          self.last_fm_network.scrobble(
-            artist=heos_played_track.artist,
-            title=heos_played_track.title,
-            timestamp=heos_played_track.finishedAt,
-            album=heos_played_track.album
+      for heos_played_track in heos_played_tracks:
+        try:
+          if (self._required_scrobble_data_exists(heos_played_track, is_scrobble=True) is True and
+              self._scrobble_length_is_valid(heos_played_track) is True):
+            self.last_fm_network.scrobble(
+              artist=heos_played_track.artist,
+              title=heos_played_track.title,
+              timestamp=heos_played_track.finishedAt,
+              album=heos_played_track.album
+            )
+            heos_played_track.submitStatus.track = True
+
+          heos_played_track.submit.track = False
+          heos_played_track.save()
+        except Exception:
+          self._log_error(
+            "Error occured while scrobbling track {artist} - {title}".format(
+              artist=heos_played_track.artist,
+              title=heos_played_track.title
+            ),
+            traceback.format_exc()
           )
-          heos_played_track.submitStatus.track = True
-
-        heos_played_track.submit.track = False
-        heos_played_track.save()
-      except Exception:
-        self._log_error(
-          "Error occured while scrobbling track {artist} - {title}".format(
-            artist=heos_played_track.artist,
-            title=heos_played_track.title
-          ),
-          traceback.format_exc()
-        )
+    except Exception:
+      self._log_error(
+        "Error occured while querying unscrobbled tracks",
+        traceback.format_exc()
+      )
 
   def update_now_playing(self, data):
     try:
