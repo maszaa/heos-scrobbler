@@ -165,7 +165,8 @@ class HeosTrackListener {
         album: data.album,
         imageUrl: data.image_url,
         startedAt: now,
-        submit: HeosTrackListener.players[pid].submit
+        submit: HeosTrackListener.players[pid].submit,
+        player: pid
       })
         .catch((err) => HeosTrackListener.logError(`Error creating track ${JSON.stringify(data)}`, err));
     }

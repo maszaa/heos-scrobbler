@@ -31,9 +31,7 @@ const heosPlayedTrackSchema = new Schema({
       default: false
     }
   },
-  player: {
-    pid: String
-  }
+  player: String
 });
 
 module.exports = mongoose.model('HeosPlayedTrack', heosPlayedTrackSchema, 'heosPlayedTracks');
