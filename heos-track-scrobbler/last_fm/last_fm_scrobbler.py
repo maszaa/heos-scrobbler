@@ -35,41 +35,32 @@ class LastFmScrobbler(object):
     return True
 
   def scrobble(self):
-    try:
-      heos_played_tracks = HeosPlayedTrack.objects(
-        submit__track=True,
-        submitStatus__track=False,
-        finishedAt__exists=True
-      )
+    heos_played_tracks = HeosPlayedTrack.objects(
+      submit__track=True,
+      submitStatus__track=False,
+      finishedAt__exists=True
+    )
 
-      for heos_played_track in heos_played_tracks:
-        if self._required_scrobble_data_exists(heos_played_track, True) is True:
-
-          if self._scrobble_length_is_valid(heos_played_track) is True:
-            self.last_fm_network.scrobble(
-              artist=heos_played_track.artist,
-              title=heos_played_track.title,
-              timestamp=heos_played_track.finishedAt,
-              album=heos_played_track.album
-            )
-
-            heos_played_track.submitStatus.track = True
+    for heos_played_track in heos_played_tracks:
+      try:
+        if (self._required_scrobble_data_exists(heos_played_track, is_scrobble=True) is True and
+            self._scrobble_length_is_valid(heos_played_track) is True):
+          self.last_fm_network.scrobble(
+            artist=heos_played_track.artist,
+            title=heos_played_track.title,
+            timestamp=heos_played_track.finishedAt,
+            album=heos_played_track.album
+          )
+          heos_played_track.submitStatus.track = True
 
         heos_played_track.submit.track = False
         heos_played_track.save()
-    except Exception:
-      heos_played_track = locals().get("heos_played_track")
-      if heos_played_track:
+      except Exception:
         self._log_error(
           "Error occured while scrobbling track {artist} - {title}".format(
             artist=heos_played_track.artist,
             title=heos_played_track.title
           ),
-          traceback.format_exc()
-        )
-      else:
-        self._log_error(
-          "Error occured while scrobbling track",
           traceback.format_exc()
         )
 
