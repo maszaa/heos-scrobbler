@@ -7,22 +7,43 @@ services:
     image: heos-track-listener:latest
     command: npm start
     environment:
-      HEOS_SUBMIT_BASE_URL: http://localhost:5000
+      MONGO_DB: heosScrobbler
     env_file:
       - heos-track-listener/.env
     restart: always
     network_mode: "host"
     depends_on:
-      - heos-track-scrobbler
+      - mongo
   heos-track-scrobbler:
     build:
       context: heos-track-scrobbler
     image: heos-track-scrobbler:latest
-    command: gunicorn -w $WORKERS -b 127.0.0.1:5000 scrobbler:app
+    command: python main.py
     environment:
       PYTHONUNBUFFERED: 1
-      FLASK_APP: scrobbler.py
+      MONGO_DB: heosScrobbler
     env_file:
       - heos-track-scrobbler/.env
     restart: always
     network_mode: "host"
+  mongo:
+    image: mongo:4.0-xenial
+    command: --replSet "rs" --port $MONGO_PORT
+    env_file:
+      - mongo/.env
+    restart: always
+    network_mode: "host"
+    volumes:
+      - mongo_data:/data/db
+      - ./mongo/initialize.js:/usr/src/initialize.js
+  mongo-express:
+    image: mongo-express:0.49
+    env_file:
+      - mongo-express/.env
+    restart: always
+    network_mode: "host"
+    depends_on:
+      - mongo
+
+volumes:
+  mongo_data:
