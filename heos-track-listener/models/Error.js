@@ -8,6 +8,7 @@ const errorSchema = new Schema({
     default: 'heos-track-listener'
   },
   message: String,
+  error: Schema.Types.Mixed,
   info: Schema.Types.Mixed,
   date: {
     type: Date,

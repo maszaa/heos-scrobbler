@@ -80,15 +80,17 @@ class HeosTrackListener {
     );
   }
 
-  static formatObjectToJsonString(data) {
-    return JSON.stringify(data, null, 2).replace(/\"/g, '\'');
-  }
-
-  static async logError(message, err) {
+  static async logError(message, err, data) {
     const error = await Error.create(
       {
         message: message,
-        info: {...err.split('\n')}
+        error: {
+          error: err.toString(),
+          file: err.fileName,
+          line: err.lineNumber,
+          column: err.columnNumber
+        },
+        info: data
       }
     )
       .catch(console.error);
@@ -107,7 +109,7 @@ class HeosTrackListener {
       if (HeosTrackListener.nowPlaying[pid] && !HeosTrackListener.nowPlaying[pid].duration) {
         HeosTrackListener.nowPlaying[pid].duration = parseInt(keyValues.pop().split('=').pop(), 10) / 1000
         await HeosTrackListener.nowPlaying[pid].save()
-          .catch((err) => HeosTrackListener.logError(`Error saving track\n${HeosTrackListener.formatObjectToJsonString(HeosTrackListener.nowPlaying[pid])}`, err));
+          .catch((err) => HeosTrackListener.logError('Error saving track', err, HeosTrackListener.nowPlaying[pid]));
       }
     } catch(err) {
       HeosTrackListener.logError("Erronous track duration", err);
@@ -154,7 +156,7 @@ class HeosTrackListener {
     if (validNowPlayingChange) {
       HeosTrackListener.nowPlaying[pid].finishedAt = moment().unix();
       await HeosTrackListener.nowPlaying[pid].save()
-        .catch((err) => HeosTrackListener.logError(`Error saving track\n${HeosTrackListener.formatObjectToJsonString(HeosTrackListener.nowPlaying[pid])}`, err));
+        .catch((err) => HeosTrackListener.logError('Error saving track', err, HeosTrackListener.nowPlaying[pid]));
     }
 
     const validNowPlayingChangeOrFirstNowPlaying = validNowPlayingChange || !HeosTrackListener.nowPlaying[pid];
@@ -172,7 +174,7 @@ class HeosTrackListener {
         submit: HeosTrackListener.players[pid].submit,
         player: pid
       })
-        .catch((err) => HeosTrackListener.logError(`Error creating track\n${HeosTrackListener.formatObjectToJsonString(data)}`, err));
+        .catch((err) => HeosTrackListener.logError('Error creating track', err, data));
     }
   }
 }

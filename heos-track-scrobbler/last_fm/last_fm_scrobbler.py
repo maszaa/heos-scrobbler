@@ -13,7 +13,7 @@ class LastFmScrobbler(object):
     try:
       error = Error(
         message=message,
-        info={str(key): value.strip() for (key, value) in traceback_info.split("\n")}
+        error={str(key): value.strip() for (key, value) in traceback_info.split("\n")}
       )
       error.save()
       print("Error occured, id: {}".format(error.id))

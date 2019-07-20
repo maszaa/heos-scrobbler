@@ -5,6 +5,7 @@ class Error(Document):
   type = StringField()
   source = StringField(default="heos-track-scrobbler")
   message = StringField()
+  error = DictField()
   info = DictField()
   date = DateTimeField(default=datetime.datetime.utcnow)
   v = IntField(db_field="__v")
