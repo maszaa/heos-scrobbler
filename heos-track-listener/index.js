@@ -10,13 +10,15 @@ mongoose.connect(
   }
 );
 
-HeosNowPlayingListener.initialize({informOnDiscovery: true})
+const heosNowPlayingListener = new HeosNowPlayingListener();
+
+heosNowPlayingListener.initialize({informOnDiscovery: true})
   .then(() => {
     HeosPlayer.watch()
       .on('change', async () => {
         console.log('Noticed changes in HEOS player configuration, reconnecting');
-        await HeosNowPlayingListener.closeConnections();
-        await HeosNowPlayingListener.initialize();
+        await heosNowPlayingListener.closeConnections();
+        await heosNowPlayingListener.initialize();
       });
   })
   .catch((err) => {
