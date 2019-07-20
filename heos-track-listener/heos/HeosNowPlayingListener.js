@@ -6,22 +6,32 @@ const path = require('path');
 
 const HeosPlayedTrack = require('../models/HeosPlayedTrack');
 const HeosPlayer = require('../models/HeosPlayer');
-const Error = require('../models/Error.js')
+const ListenerError = require('../models/Error.js')
 
 
 class HeosTrackListener {
   static async initialize(options) {
-    return heos.discoverDevices(
-      {
-        timeout: parseInt(process.env.HEOS_DISCOVER_DEVICES_TIMEOUT || 10000, 10)
-      },
-      async (address) => {
-        options && options.informOnDiscovery ? console.log(`Found HEOS device with IP address ${address}`) : null;
+    return new Promise((resolve, reject) => {
+      heos.discoverDevices(
+        {
+          timeout: parseInt(process.env.HEOS_DISCOVER_DEVICES_TIMEOUT || 10000, 10)
+        },
+        async (address) => {
+          options && options.informOnDiscovery ? console.log(`Found HEOS device with IP address ${address}`) : null;
 
-        await HeosTrackListener.initializeConnection(address);
-      },
-      (addresses) => console.log(`HEOS discover devices timeout reached, found ${addresses.length} devices`)
-    );
+          await HeosTrackListener.initializeConnection(address);
+        },
+        (addresses) => {
+          console.log(`HEOS discover devices timeout reached, found ${addresses.length} devices`);
+
+          if (!addresses.length) {
+            reject(new Error('Please add HEOS devices to your network, turn them on or connect your PC to network which has them connected'));
+          }
+
+          resolve(addresses);
+        }
+      );
+    });
   }
 
   static async initializeConnection(address) {
@@ -53,17 +63,31 @@ class HeosTrackListener {
           await HeosTrackListener.initializeConnection(address);
         });
 
-      const additionalHeosConnectionModificatorPath = path.join(__dirname, 'additional');
-
-      fs.readdirSync(additionalHeosConnectionModificatorPath).forEach((file) => {
-        if (file.split('.').pop() === 'js') {
-          require(path.join(additionalHeosConnectionModificatorPath, file))(connection);
-          console.log(`Loaded additional HEOS connection modificator: ${file}`);
-        }
-      });
+      HeosTrackListener.setupDeviceHeartbeat(connection);
+      HeosTrackListener.loadAdditionalConnectionModificators(connection);
 
       HeosTrackListener.connections[address] = connection;
     }
+  }
+
+  static setupDeviceHeartbeat(connection) {
+    setInterval(
+      () => {
+        connection.write('system', 'heart_beat');
+      },
+      parseInt(process.env.HEOS_HEARTBEAT_INTERVAL || 10000, 10)
+    );
+  }
+
+  static loadAdditionalConnectionModificators(connection) {
+    const additionalHeosConnectionModificatorPath = path.join(__dirname, 'additional');
+
+    fs.readdirSync(additionalHeosConnectionModificatorPath).forEach((file) => {
+      if (file.split('.').pop() === 'js') {
+        require(path.join(additionalHeosConnectionModificatorPath, file))(connection);
+        console.log(`Loaded additional HEOS connection modificator: ${file}`);
+      }
+    });
   }
 
   static async closeConnections() {
@@ -81,7 +105,7 @@ class HeosTrackListener {
   }
 
   static async logError(message, err, data) {
-    const error = await Error.create(
+    const error = await ListenerError.create(
       {
         message: message,
         error: {
