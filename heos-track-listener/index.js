@@ -17,8 +17,13 @@ heosNowPlayingListener.initialize({informOnDiscovery: true})
     HeosPlayer.watch()
       .on('change', async () => {
         console.log('Noticed changes in HEOS player configuration, reconnecting');
+
         await heosNowPlayingListener.closeConnections();
-        await heosNowPlayingListener.initialize();
+        await heosNowPlayingListener.initialize()
+          .catch((err) => {
+            console.error(err);
+            process.exit(1);
+          });
       });
   })
   .catch((err) => {

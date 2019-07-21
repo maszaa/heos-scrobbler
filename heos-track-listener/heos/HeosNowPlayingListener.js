@@ -65,12 +65,17 @@ class HeosTrackListener {
           const message = `Connection to HEOS device with ${address} closed${err ? ' by error' : ''}`;
 
           if (err) {
-            await this.handleConnectionError(address, message);
+            await this.handleConnectionError(connection, address, message);
           } else {
             console.log(message);
           }
         })
-        .onError(async (err) => await this.handleConnectionError(address, `Error occured while connected to HEOS device with address ${address}`, err));
+        .onError(async (err) => await this.handleConnectionError(
+          connection,
+          address,
+          `Error occured while connected to HEOS device with address ${address}`,
+          err)
+        );
 
       this.setupDeviceHeartbeat(connection, address);
       this.loadAdditionalConnectionModificators(connection);
@@ -90,10 +95,11 @@ class HeosTrackListener {
       }
     });
 
-    setInterval(
+    const heartbeat = setInterval(
       async () => {
         if (!connection.heartbeatSuccessful) {
-          await this.handleConnectionError(address, `Timeout or error occured while connected to HEOS device with address ${address}`)
+          clearInterval(heartbeat);
+          await this.handleConnectionError(connection, address, `Timeout or error occured while connected to HEOS device with address ${address}`)
         } else {
           connection.heartbeatSuccessful = false;
           connection.write('system', 'heart_beat');
@@ -128,8 +134,15 @@ class HeosTrackListener {
     );
   }
 
-  async handleConnectionError(address, message, err) {
+  async handleConnectionError(connection, address, message, err) {
     this.logError(message, err);
+
+    if (!connection.closed) {
+      console.log(`Closing connection to HEOS device with address ${address}`);
+
+      await connection.close()
+        .catch((err) => this.logError(`Error closing connection to HEOS device with address ${address}`, err));
+    }
 
     console.log(`Reconnecting to HEOS device with address ${address}`);
     await this.initializeConnection(address);
