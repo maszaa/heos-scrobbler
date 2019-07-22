@@ -11,7 +11,7 @@ function handleRepeatMode(data, connection) {
   }
 }
 
-function setRepeatModeToOnAll(connection) {
+function setRepeatModeToOnAll(connection, nowPlayingListener) {
   connection.on({commandGroup: 'event', command: 'repeat_mode_changed'}, (data) => handleRepeatMode(data, connection));
 }
 

@@ -4,6 +4,8 @@ const moment = require('moment');
 const mongoose = require('mongoose');
 const path = require('path');
 
+const sleep = require('util').promisify(setTimeout)
+
 const HeosPlayedTrack = require('../models/HeosPlayedTrack');
 const HeosPlayer = require('../models/HeosPlayer');
 const ListenerError = require('../models/Error.js')
@@ -14,6 +16,7 @@ class HeosTrackListener {
     this.players = {};
     this.nowPlaying = {};
     this.connections = {};
+    this.reconnectingToAddresses = [];
 
     this.handlePlayers = this.handlePlayers.bind(this);
     this.handleTrack = this.handleTrack.bind(this);
@@ -25,10 +28,10 @@ class HeosTrackListener {
     return new Promise((resolve, reject) => {
       heos.discoverDevices(
         {
-          timeout: parseInt(process.env.HEOS_DISCOVER_DEVICES_TIMEOUT || 10000, 10)
+          timeout: parseInt(process.env.HEOS_DISCOVER_DEVICES_TIMEOUT || 10000, 10) // ms
         },
         async (address) => {
-          options && options.informOnDiscovery ? console.log(`Found HEOS device with IP address ${address}`) : null;
+          options && options.informOnDiscovery && console.log(`Found HEOS device with IP address ${address}`);
 
           await this.initializeConnection(address);
         },
@@ -61,14 +64,8 @@ class HeosTrackListener {
           connection.write('player', 'get_now_playing_media', { pid: this.getPlayerPid(data) });
         })
         .on({commandGroup: 'event', command: 'player_now_playing_progress'}, this.handleTrackDuration)
-        .onClose(async (err) => {
+        .onClose((err) => {
           const message = `Connection to HEOS device with ${address} closed${err ? ' by error' : ''}`;
-
-          if (err) {
-            await this.handleConnectionError(connection, address, message);
-          } else {
-            console.log(message);
-          }
         })
         .onError(async (err) => await this.handleConnectionError(
           connection,
@@ -82,11 +79,11 @@ class HeosTrackListener {
 
       this.connections[address] = connection;
     }
+
+    return connection;
   }
 
   setupDeviceHeartbeat(connection, address) {
-    connection.heartbeatSuccessful = true;
-
     connection.on({commandGroup: 'system', command: 'heart_beat'}, (data) => {
       if (data.heos.result !== 'success') {
         connection.heartbeatSuccessful = false;
@@ -97,15 +94,17 @@ class HeosTrackListener {
 
     const heartbeat = setInterval(
       async () => {
-        if (!connection.heartbeatSuccessful) {
-          clearInterval(heartbeat);
+        if (connection.hasOwnProperty('heartbeatSuccessful') && !connection.heartbeatSuccessful && !connection.closed) {
           await this.handleConnectionError(connection, address, `Timeout or error occured while connected to HEOS device with address ${address}`)
-        } else {
+        } else if (!connection.closed) {
           connection.heartbeatSuccessful = false;
           connection.write('system', 'heart_beat');
+          return;
         }
+
+        clearInterval(heartbeat);
       },
-      parseInt(process.env.HEOS_HEARTBEAT_INTERVAL || 10000, 10)
+      parseInt(process.env.HEOS_HEARTBEAT_INTERVAL || 10000, 10) // ms
     );
   }
 
@@ -114,7 +113,7 @@ class HeosTrackListener {
 
     fs.readdirSync(additionalHeosConnectionModificatorPath).forEach((file) => {
       if (file.split('.').pop() === 'js') {
-        require(path.join(additionalHeosConnectionModificatorPath, file))(connection);
+        require(path.join(additionalHeosConnectionModificatorPath, file))(connection, this);
         console.log(`Loaded additional HEOS connection modificator: ${file}`);
       }
     });
@@ -144,8 +143,36 @@ class HeosTrackListener {
         .catch((err) => this.logError(`Error closing connection to HEOS device with address ${address}`, err));
     }
 
+    if (!this.reconnectingToAddresses.includes(address)) {
+      await this.reconnect(address);
+    }
+  }
+
+  async reconnect(address) {
+    this.reconnectingToAddresses.push(address);
+
+    let connection;
+    const retryOptions = {
+      retry: 1,
+      interval: parseInt(process.env.HEOS_RECONNECT_INTERVAL || 30000, 10), // ms
+      maxCount: parseInt(process.env.HEOS_RECONNECT_RETRIES || 0, 10) // 0 = disabled
+    };
+
     console.log(`Reconnecting to HEOS device with address ${address}`);
-    await this.initializeConnection(address);
+
+    while (!connection || retryOptions.maxCount && retryOptions.retry <= retryOptions.maxCount) {
+      if (retryOptions.retry - 1) {
+        console.log(`Reconnect to ${address} unsuccessful, waiting ${retryOptions.interval / 1000} seconds before next attempt`);
+        await sleep(retryOptions.interval);
+        console.log(`Attempt ${retryOptions.retry} to reconnect to ${address}, ${retryOptions.maxCount ? `${retryOptions.maxCount - retryOptions.retry} attempts left` : 'unlimited retries'}`);
+      }
+
+      connection = await this.initializeConnection(address);
+      ++retryOptions.retry;
+    }
+
+    this.connections[address] = connection;
+    this.reconnectingToAddresses = this.reconnectingToAddresses.filter((reconnectingToAddress) => reconnectingToAddress !== address);
   }
 
   async logError(message, err, data) {
@@ -160,26 +187,26 @@ class HeosTrackListener {
               line: err.lineNumber,
               column: err.columnNumber
             } :
-            null
+            undefined
         ),
         info: data
       }
     )
       .catch(console.error);
-    error ? console.error(`Error occured, id: `, error._id) : null;
+    error && console.error(`${error.message}${error.error ? ` - ${error.error.error}` : ''}, id: ${error._id}`);
   }
 
   getPlayerPid(data) {
-    return data.heos.message.split('=').pop();
+    const message = data.heos.message.includes('&') ? data.heos.message.split('&').shift() : data.heos.message
+    return message.split('=').pop();
   }
 
   async handleTrackDuration(data) {
     try {
-      const keyValues = data.heos.message.split('&');
-      const pid = keyValues.shift().split('=').pop();
+      const pid = this.getPlayerPid(data);
 
       if (this.nowPlaying[pid] && !this.nowPlaying[pid].duration) {
-        this.nowPlaying[pid].duration = parseInt(keyValues.pop().split('=').pop(), 10) / 1000
+        this.nowPlaying[pid].duration = parseInt(data.heos.message.split('&').pop().split('=').pop(), 10) / 1000
         await this.nowPlaying[pid].save()
           .catch((err) => this.logError('Error saving track', err, this.nowPlaying[pid]));
       }
