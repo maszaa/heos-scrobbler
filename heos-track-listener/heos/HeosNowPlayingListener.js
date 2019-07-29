@@ -13,9 +13,7 @@ const ListenerError = require('../models/Error.js')
 
 class HeosTrackListener {
   constructor() {
-    this.players = {};
     this.nowPlaying = {};
-    this.connections = {};
     this.reconnectingToAddresses = [];
 
     this.handlePlayers = this.handlePlayers.bind(this);
@@ -24,16 +22,18 @@ class HeosTrackListener {
     this.handleConnectionError = this.handleConnectionError.bind(this)
   }
 
-  async initialize(options) {
+  async initialize() {
     return new Promise((resolve, reject) => {
+      const connections = {};
+
       heos.discoverDevices(
         {
           timeout: parseInt(process.env.HEOS_DISCOVER_DEVICES_TIMEOUT || 10000, 10) // ms
         },
         async (address) => {
-          options && options.informOnDiscovery && console.log(`Found HEOS device with IP address ${address}`);
+          console.log(`Found HEOS device with IP address ${address}`);
 
-          await this.initializeConnection(address);
+          connections[address] = await this.initializeConnection(address);
         },
         (addresses) => {
           console.log(`HEOS discover devices timeout reached, found ${addresses.length} devices`);
@@ -42,7 +42,7 @@ class HeosTrackListener {
             reject(new Error('Please add HEOS devices to your network, turn them on or connect your PC to network which has them connected'));
           }
 
-          resolve(addresses);
+          resolve(connections);
         }
       );
     });
@@ -76,8 +76,6 @@ class HeosTrackListener {
 
       this.setupDeviceHeartbeat(connection, address);
       this.loadAdditionalConnectionModificators(connection);
-
-      this.connections[address] = connection;
     }
 
     return connection;
@@ -119,20 +117,6 @@ class HeosTrackListener {
     });
   }
 
-  async closeConnections() {
-    await Promise.all(Object.keys(this.connections)
-      .map((address) => {
-        console.log(`Closing connection to HEOS device with address ${address}`);
-
-        const closePromise = this.connections[address].close()
-          .catch((err) => this.logError(`Error closing connection to HEOS device with address ${address}`, err));
-        delete this.connections[address];
-
-        return closePromise;
-      })
-    );
-  }
-
   async handleConnectionError(connection, address, message, err) {
     this.logError(message, err);
 
@@ -171,7 +155,6 @@ class HeosTrackListener {
       ++retryOptions.retry;
     }
 
-    this.connections[address] = connection;
     this.reconnectingToAddresses = this.reconnectingToAddresses.filter((reconnectingToAddress) => reconnectingToAddress !== address);
   }
 
@@ -204,40 +187,43 @@ class HeosTrackListener {
   async handleTrackDuration(data) {
     const pid = this.getPlayerPid(data);
 
-    if (this.nowPlaying[pid] && !this.nowPlaying[pid].duration) {
-      this.nowPlaying[pid].duration = parseInt(data.heos.message.split('&').pop().split('=').pop(), 10) / 1000;
-      this.nowPlaying[pid].ready.nowPlaying = true;
-
-      await this.nowPlaying[pid].save()
-        .catch((err) => this.logError('Error saving track', err, this.nowPlaying[pid]));
+    if (this.nowPlaying[pid]) {
+      await HeosPlayedTrack.updateOne(
+        {
+          _id: this.nowPlaying[pid],
+          duration: {
+            $exists: false
+          }
+        },
+        {
+          duration: parseInt(data.heos.message.split('&').pop().split('=').pop(), 10) / 1000,
+          'ready.nowPlaying': true
+        }
+      )
+        .catch((err) => this.logError(`Error updating track with id ${this.nowPlaying[pid]}`, err));
     }
   }
 
   async handlePlayers(data) {
     data = data.payload;
 
-    data.map(async (player) => {
-      let heosPlayer = await HeosPlayer.findOne(
+    await Promise.all(data.map((player) => {
+      return HeosPlayer.findOneAndUpdate(
         {
           address: player.ip,
           pid: player.pid
-        }
-      )
-        .catch((err) => this.logError(`Error querying player with address ${address} and pid ${pid}`, err));
-
-      if (!heosPlayer) {
-        console.log(`HEOS player with pid ${player.pid} and address ${player.ip} wasn't found at the database, adding player now, will trigger reconnect`);
-
-        heosPlayer = await HeosPlayer.create({
+        },
+        {
           address: player.ip,
           pid: player.pid,
           info: player
-        })
-          .catch((err) => this.logError(`Error creating player with address ${address} and pid ${pid}`, err));
-      }
-
-      this.players[heosPlayer.pid] = heosPlayer;
-    });
+        },
+        {
+          upsert: true
+        }
+      )
+        .catch((err) => this.logError(`Error creating player with address ${address} and pid ${pid}`, err));
+    }));
   }
 
   async handleTrack(data) {
@@ -245,24 +231,31 @@ class HeosTrackListener {
     const now = moment().unix();
     data = data.payload;
 
-    const validNowPlayingChange = this.nowPlaying[pid] && this.nowPlaying[pid].startedAt;
-
-    if (validNowPlayingChange) {
-      this.nowPlaying[pid].finishedAt = now;
-
-      if (this.nowPlaying[pid].ready.nowPlaying) {
-        this.nowPlaying[pid].ready.track = true;
-      }
-
-      await this.nowPlaying[pid].save()
-        .catch((err) => this.logError('Error saving track', err, this.nowPlaying[pid]));
+    if (this.nowPlaying[pid]) {
+      await HeosPlayedTrack.updateOne(
+        {
+          _id: this.nowPlaying[pid],
+          startedAt: {
+            $exists: true
+          },
+          'ready.nowPlaying': true,
+          'ready.track': false
+        },
+        {
+          finishedAt: now,
+          'ready.track': true
+        }
+      )
+        .catch((err) => this.logError(`Error updating track with id ${this.nowPlaying[pid]}`, err));
     }
 
-    const validNowPlayingChangeOrFirstNowPlaying = validNowPlayingChange || !this.nowPlaying[pid];
-    const validNowPlayingType = data.type === 'song' || !this.players[pid].usbAndNetworkOnly;
+    const player = await HeosPlayer.findOne({
+      pid: pid
+    })
+      .catch((err) => this.logError(`Error querying player with pid ${pid}`, err))
 
-    if (validNowPlayingChangeOrFirstNowPlaying && validNowPlayingType) {
-      this.nowPlaying[pid] = await HeosPlayedTrack.create({
+    if (data.type === 'song' || (player && !player.usbAndNetworkOnly)) {
+      const nowPlaying = await HeosPlayedTrack.create({
         type: data.type,
         source: data.mid,
         title: data.song,
@@ -270,10 +263,12 @@ class HeosTrackListener {
         album: data.album,
         imageUrl: data.image_url,
         startedAt: now,
-        submit: this.players[pid].submit,
+        submit: player ? player.submit : undefined,
         player: pid
       })
         .catch((err) => this.logError('Error creating track', err, data));
+
+      this.nowPlaying[pid] = nowPlaying._id;
     }
   }
 }

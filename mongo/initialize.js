@@ -8,6 +8,5 @@ db.createUser({
   ]
 });
 
-db.createCollection('heosPlayers');
 db.createCollection('heosPlayedTracks');
 db.createCollection('lastFmUsers');
