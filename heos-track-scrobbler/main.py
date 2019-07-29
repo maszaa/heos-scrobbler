@@ -1,12 +1,10 @@
 import os
 import sys
 
-import pylast
 from mongoengine import connect
 
 from models.heos_played_track import HeosPlayedTrack
 from models.last_fm_user import LastFmUser
-from last_fm.last_fm_utils import get_last_fm_network, set_last_fm_session_key
 from last_fm.last_fm_scrobbler import LastFmScrobbler
 
 
@@ -26,7 +24,7 @@ def initialize_database_connection():
   )
 
 
-def initialize_last_fm_scrobbling():
+def initialize_last_fm_user():
   last_fm_user = LastFmUser.objects().first()
 
   if not last_fm_user:
@@ -36,55 +34,28 @@ def initialize_last_fm_scrobbling():
   else:
     print("Last.fm user exists in database")
 
-  if last_fm_user.username and last_fm_user.password and not last_fm_user.sessionKey:
-    last_fm_user = set_last_fm_session_key(last_fm_user.username, last_fm_user.password)
-    print("Set session key for Last.fm user")
 
-  if last_fm_user.sessionKey:
-    last_fm_network = get_last_fm_network(session_key=last_fm_user.sessionKey)
-    print("Initializing Last.fm scrobbler")
-    last_fm_scrobbler = LastFmScrobbler(last_fm_network, last_fm_user)
-    print("Initialized Last.fm scrobbler")
-    return last_fm_scrobbler
+def initialize_heos_played_track_watcher():
+  heos_played_tracks = HeosPlayedTrack._get_collection()
+  tracks_to_submit = heos_played_tracks.watch(full_document="updateLookup")
+  last_fm_scrobbler = LastFmScrobbler()
 
-  print("Last.fm user missing username and password, please set them")
-
-
-def initialize_collection_watchers(last_fm_scrobbler):
-  last_fm_users = LastFmUser._get_collection()
-  last_fm_users_to_watch = last_fm_users.watch(full_document="updateLookup")
-  tracks_to_submit = None
-
-  if last_fm_scrobbler:
-    heos_played_tracks = HeosPlayedTrack._get_collection()
-    tracks_to_submit = heos_played_tracks.watch(full_document="updateLookup")
-
-  while True:
-    while last_fm_users_to_watch.alive:
-      last_fm_user = last_fm_users_to_watch.try_next()
-      if last_fm_user:
-        print("Noticed changes in Last.fm user, updating scrobbler")
-        last_fm_scrobbler = initialize_last_fm_scrobbling()
-        initialize_collection_watchers(last_fm_scrobbler)
-      break
-
-    while tracks_to_submit and tracks_to_submit.alive:
-      track = tracks_to_submit.try_next()
-      if track:
-        track = track.get("fullDocument")
-        if (track.get("submit").get("nowPlaying") is True and
-            track.get("ready").get("nowPlaying") is True and
-            track.get("submitStatus").get("nowPlaying") is False):
-          last_fm_scrobbler.update_now_playing(track)
-        last_fm_scrobbler.scrobble()
-      break
+  while tracks_to_submit.alive:
+    track = tracks_to_submit.try_next()
+    if track:
+      track = track.get("fullDocument")
+      if (track.get("submit").get("nowPlaying") is True and
+          track.get("ready").get("nowPlaying") is True and
+          track.get("submitStatus").get("nowPlaying") is False):
+        last_fm_scrobbler.update_now_playing(track)
+      last_fm_scrobbler.scrobble()
 
 
 def main():
   try:
     initialize_database_connection()
-    last_fm_scrobbler = initialize_last_fm_scrobbling()
-    initialize_collection_watchers(last_fm_scrobbler)
+    initialize_last_fm_user()
+    initialize_heos_played_track_watcher()
   except Exception as err:
     print(err)
     sys.exit(1)

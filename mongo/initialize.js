@@ -9,4 +9,3 @@ db.createUser({
 });
 
 db.createCollection('heosPlayedTracks');
-db.createCollection('lastFmUsers');
