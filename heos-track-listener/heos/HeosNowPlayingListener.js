@@ -4,7 +4,7 @@ const moment = require('moment');
 const mongoose = require('mongoose');
 const path = require('path');
 
-const sleep = require('util').promisify(setTimeout)
+const sleep = require('util').promisify(setTimeout);
 
 const HeosPlayedTrack = require('../models/HeosPlayedTrack');
 const HeosPlayer = require('../models/HeosPlayer');
@@ -202,16 +202,14 @@ class HeosTrackListener {
   }
 
   async handleTrackDuration(data) {
-    try {
-      const pid = this.getPlayerPid(data);
+    const pid = this.getPlayerPid(data);
 
-      if (this.nowPlaying[pid] && !this.nowPlaying[pid].duration) {
-        this.nowPlaying[pid].duration = parseInt(data.heos.message.split('&').pop().split('=').pop(), 10) / 1000
-        await this.nowPlaying[pid].save()
-          .catch((err) => this.logError('Error saving track', err, this.nowPlaying[pid]));
-      }
-    } catch(err) {
-      this.logError("Erronous track duration", err);
+    if (this.nowPlaying[pid] && !this.nowPlaying[pid].duration) {
+      this.nowPlaying[pid].duration = parseInt(data.heos.message.split('&').pop().split('=').pop(), 10) / 1000;
+      this.nowPlaying[pid].ready.nowPlaying = true;
+
+      await this.nowPlaying[pid].save()
+        .catch((err) => this.logError('Error saving track', err, this.nowPlaying[pid]));
     }
   }
 
@@ -247,13 +245,15 @@ class HeosTrackListener {
     const now = moment().unix();
     data = data.payload;
 
-    // HEOS device emits duplicate 'player_now_playing_changed' events when manually changing track. Prevent scrobbling those.
-    const validNowPlayingChange = this.nowPlaying[pid] &&
-      this.nowPlaying[pid].startedAt &&
-      now - this.nowPlaying[pid].startedAt > this.players[pid].minimumTimeBetweenNowPlayingChange;
+    const validNowPlayingChange = this.nowPlaying[pid] && this.nowPlaying[pid].startedAt;
 
     if (validNowPlayingChange) {
-      this.nowPlaying[pid].finishedAt = moment().unix();
+      this.nowPlaying[pid].finishedAt = now;
+
+      if (this.nowPlaying[pid].ready.nowPlaying) {
+        this.nowPlaying[pid].ready.track = true;
+      }
+
       await this.nowPlaying[pid].save()
         .catch((err) => this.logError('Error saving track', err, this.nowPlaying[pid]));
     }

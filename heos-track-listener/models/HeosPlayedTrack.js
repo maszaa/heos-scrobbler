@@ -11,6 +11,16 @@ const heosPlayedTrackSchema = new Schema({
   imageUrl: String,
   startedAt: Number,
   finishedAt: Number,
+  ready: {
+    nowPlaying: {
+      type: Boolean,
+      default: false
+    },
+    track: {
+      type: Boolean,
+      default: false
+    }
+  },
   submit: {
     nowPlaying: {
       type: Boolean,

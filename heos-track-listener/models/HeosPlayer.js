@@ -4,10 +4,6 @@ const Schema = mongoose.Schema;
 const heosPlayerSchema = new Schema({
   address: String,
   pid: String,
-  minimumTimeBetweenNowPlayingChange: {
-    type: Number,
-    default: 5
-  },
   usbAndNetworkOnly: {
     type: Boolean,
     default: false

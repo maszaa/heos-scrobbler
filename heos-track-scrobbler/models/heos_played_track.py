@@ -14,6 +14,7 @@ class HeosPlayedTrack(Document):
   imageUrl = StringField()
   startedAt = IntField(min_value=0)
   finishedAt = IntField(min_value=0)
+  ready = EmbeddedDocumentField(Submit)
   submit = EmbeddedDocumentField(Submit)
   submitStatus = EmbeddedDocumentField(Submit)
   player = StringField()

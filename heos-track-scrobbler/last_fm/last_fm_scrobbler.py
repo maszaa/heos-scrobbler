@@ -42,6 +42,7 @@ class LastFmScrobbler(object):
       heos_played_tracks = HeosPlayedTrack.objects(
         submit__track=True,
         submitStatus__track=False,
+        ready__track=True,
         finishedAt__exists=True
       )
 

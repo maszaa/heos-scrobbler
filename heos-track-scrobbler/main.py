@@ -72,7 +72,9 @@ def initialize_collection_watchers(last_fm_scrobbler):
       track = tracks_to_submit.try_next()
       if track:
         track = track.get("fullDocument")
-        if track.get("submit").get("nowPlaying") is True and track.get("submitStatus").get("nowPlaying") is False:
+        if (track.get("submit").get("nowPlaying") is True and
+            track.get("ready").get("nowPlaying") is True and
+            track.get("submitStatus").get("nowPlaying") is False):
           last_fm_scrobbler.update_now_playing(track)
         last_fm_scrobbler.scrobble()
       break
