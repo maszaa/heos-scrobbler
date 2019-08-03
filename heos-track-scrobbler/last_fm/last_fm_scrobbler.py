@@ -160,7 +160,8 @@ class LastFmScrobbler(object):
         last_fm_network.update_now_playing(
           artist=heos_played_track.artist,
           title=heos_played_track.title,
-          album=heos_played_track.album
+          album=heos_played_track.album,
+          duration=heos_played_track.duration
         )
 
         heos_played_track.submitStatus.nowPlaying = True
