@@ -1,2 +1,3 @@
 pylast==3.1.0
 mongoengine==0.18.2
+asyncio_redis==0.15.1

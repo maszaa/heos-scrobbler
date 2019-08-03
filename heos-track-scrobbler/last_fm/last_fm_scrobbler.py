@@ -81,7 +81,7 @@ class LastFmScrobbler(object):
     try:
       error = Error(
         message=message,
-        error={str(key): value for (key, value) in enumerate(traceback_info.split("\n"))}
+        error={str(key): value for (key, value) in enumerate(traceback_info.replace("\"", "'").split("\n"))}
       )
       error.save()
       print("{0}, id: {1}".format(error.message, error.id))
@@ -147,32 +147,34 @@ class LastFmScrobbler(object):
         traceback.format_exc()
       )
 
-  def update_now_playing(self, data):
+  def update_now_playing(self, id):
     try:
       last_fm_user = self._get_user()
       last_fm_network = self._get_last_fm_network(last_fm_user)
 
-      heos_played_track = HeosPlayedTrack.objects(id=data.get("_id")).first()
+      heos_played_track = HeosPlayedTrack.objects(
+        id=id,
+        ready__nowPlaying=True,
+        submit__nowPlaying=True,
+        submitStatus__nowPlaying=False
+      ).first()
 
-      if (last_fm_user and
-          last_fm_network and
-          self._required_scrobble_data_exists(heos_played_track) is True):
-        last_fm_network.update_now_playing(
-          artist=heos_played_track.artist,
-          title=heos_played_track.title,
-          album=heos_played_track.album,
-          duration=heos_played_track.duration
-        )
+      if last_fm_user and last_fm_network and heos_played_track:
+        if self._required_scrobble_data_exists(heos_played_track) is True:
+          last_fm_network.update_now_playing(
+            artist=heos_played_track.artist,
+            title=heos_played_track.title,
+            album=heos_played_track.album,
+            duration=heos_played_track.duration
+          )
+          heos_played_track.submitStatus.nowPlaying = True
 
-        heos_played_track.submitStatus.nowPlaying = True
-
-      heos_played_track.submit.nowPlaying = False
-      heos_played_track.save()
+        heos_played_track.submit.nowPlaying = False
+        heos_played_track.save()
     except Exception:
       self._log_error(
-        "Error occured while updating now playing track {artist} - {title}".format(
-          artist=data.get("artist"),
-          title=data.get("title")
+        "Error occured while updating now playing track {id}".format(
+          id=id
         ),
         traceback.format_exc()
       )

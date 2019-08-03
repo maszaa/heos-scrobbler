@@ -1,5 +1,8 @@
 import os
 import sys
+import asyncio
+import asyncio_redis
+import traceback
 
 from mongoengine import connect
 
@@ -35,19 +38,26 @@ def initialize_last_fm_user():
     print("Last.fm user exists in database")
 
 
-def initialize_heos_played_track_watcher():
-  heos_played_tracks = HeosPlayedTrack._get_collection()
-  tracks_to_submit = heos_played_tracks.watch(full_document="updateLookup")
+@asyncio.coroutine
+def initialize_redis_subscriber():
   last_fm_scrobbler = LastFmScrobbler()
 
-  while tracks_to_submit.alive:
-    track = tracks_to_submit.try_next()
-    if track:
-      track = track.get("fullDocument")
-      if (track.get("submit").get("nowPlaying") is True and
-          track.get("ready").get("nowPlaying") is True and
-          track.get("submitStatus").get("nowPlaying") is False):
-        last_fm_scrobbler.update_now_playing(track)
+  connection = yield from asyncio_redis.Connection.create(
+    host=os.environ.get("REDIS_HOST"),
+    port=int(os.environ.get("REDIS_PORT"))
+  )
+
+  subscriber = yield from connection.start_subscribe()
+  yield from subscriber.subscribe(
+    [
+      os.environ.get("REDIS_CHANNEL")
+    ]
+  )
+
+  while True:
+    reply = yield from subscriber.next_published()
+    if reply:
+      last_fm_scrobbler.update_now_playing(reply.value)
       last_fm_scrobbler.scrobble()
 
 
@@ -55,9 +65,9 @@ def main():
   try:
     initialize_database_connection()
     initialize_last_fm_user()
-    initialize_heos_played_track_watcher()
-  except Exception as err:
-    print(err)
+    asyncio.get_event_loop().run_until_complete(initialize_redis_subscriber())
+  except Exception:
+    print(traceback.format_exc())
     sys.exit(1)
 
 

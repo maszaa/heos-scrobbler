@@ -8,12 +8,14 @@ services:
     command: npm start
     environment:
       MONGO_DB: heosScrobbler
+      REDIS_CHANNEL: heosScrobbler
     env_file:
       - heos-track-listener/.env
     restart: always
     network_mode: "host"
     depends_on:
       - mongo
+      - redis
   heos-track-scrobbler:
     build:
       context: heos-track-scrobbler
@@ -22,13 +24,17 @@ services:
     environment:
       PYTHONUNBUFFERED: 1
       MONGO_DB: heosScrobbler
+      REDIS_CHANNEL: heosScrobbler
     env_file:
       - heos-track-scrobbler/.env
     restart: always
     network_mode: "host"
+    depends_on:
+      - mongo
+      - redis
   mongo:
     image: mongo:4.0-xenial
-    command: --replSet "rs" --port $MONGO_PORT
+    command: --port $MONGO_PORT
     env_file:
       - mongo/.env
     restart: always
@@ -44,6 +50,13 @@ services:
     network_mode: "host"
     depends_on:
       - mongo
+  redis:
+    image: redis:5.0-alpine
+    command: --port $REDIS_PORT
+    env_file:
+      - redis/.env
+    restart: always
+    network_mode: "host"
 
 volumes:
   mongo_data:

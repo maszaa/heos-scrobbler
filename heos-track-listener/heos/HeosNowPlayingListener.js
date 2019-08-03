@@ -188,19 +188,22 @@ class HeosTrackListener {
     const pid = this.getPlayerPid(data);
 
     if (this.nowPlaying[pid]) {
-      await HeosPlayedTrack.updateOne(
-        {
-          _id: this.nowPlaying[pid],
-          duration: {
-            $exists: false
-          }
+      const nowPlaying = await HeosPlayedTrack.findOne({
+        _id: this.nowPlaying[pid],
+        duration: {
+          $exists: false
         },
-        {
-          duration: parseInt(data.heos.message.split('&').pop().split('=').pop(), 10) / 1000,
-          'ready.nowPlaying': true
-        }
-      )
-        .catch((err) => this.logError(`Error updating track with id ${this.nowPlaying[pid]}`, err));
+        'ready.nowPlaying': false
+      })
+        .catch((err) => this.logError(`Error querying track with id ${this.nowPlaying[pid]}`, err));
+
+      if (nowPlaying) {
+        nowPlaying.duration = parseInt(data.heos.message.split('&').pop().split('=').pop(), 10) / 1000;
+        nowPlaying.ready.nowPlaying = true;
+
+        await nowPlaying.save()
+          .catch((err) => this.logError(`Error updating duration for track ${nowPlaying._id}`, err, nowPlaying));
+      }
     }
   }
 
@@ -219,7 +222,8 @@ class HeosTrackListener {
           info: player
         },
         {
-          upsert: true
+          upsert: true,
+          setDefaultsOnInsert: true
         }
       )
         .catch((err) => this.logError(`Error creating player with address ${address} and pid ${pid}`, err));

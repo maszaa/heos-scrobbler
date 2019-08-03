@@ -7,5 +7,3 @@ db.createUser({
     'readWrite'
   ]
 });
-
-db.createCollection('heosPlayedTracks');
