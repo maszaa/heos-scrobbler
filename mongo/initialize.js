@@ -1,9 +1,13 @@
 db = db.getSiblingDB('heosScrobbler');
 
-db.createUser({
-  user: heosScrobblerUser,
-  pwd: heosScrobblerPassword,
-  roles: [
-    'readWrite'
-  ]
-});
+user = db.getUser(heosScrobblerUser);
+
+if (!user) {
+  db.createUser({
+    user: heosScrobblerUser,
+    pwd: heosScrobblerPassword,
+    roles: [
+      'readWrite'
+    ]
+  });
+}
