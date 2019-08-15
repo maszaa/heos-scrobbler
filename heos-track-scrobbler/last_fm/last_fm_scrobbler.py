@@ -167,10 +167,10 @@ class LastFmScrobbler(object):
             album=heos_played_track.album,
             duration=heos_played_track.duration
           )
-          heos_played_track.submitStatus.nowPlaying = True
 
-        heos_played_track.submit.nowPlaying = False
-        heos_played_track.save()
+          heos_played_track.submitStatus.nowPlaying = True
+          heos_played_track.submit.nowPlaying = False
+          heos_played_track.save()
     except Exception:
       self._log_error(
         "Error occured while updating now playing track {id}".format(
