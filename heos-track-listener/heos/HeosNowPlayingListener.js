@@ -144,7 +144,7 @@ class HeosTrackListener {
 
     console.log(`Reconnecting to HEOS device with address ${address}`);
 
-    while (!connection || retryOptions.maxCount && retryOptions.retry <= retryOptions.maxCount) {
+    while (!connection && (!retryOptions.maxCount || retryOptions.maxCount && retryOptions.retry <= retryOptions.maxCount)) {
       if (retryOptions.retry - 1) {
         console.log(`Reconnect to ${address} unsuccessful, waiting ${retryOptions.interval / 1000} seconds before next attempt`);
         await sleep(retryOptions.interval);
