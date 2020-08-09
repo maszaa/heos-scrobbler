@@ -38,24 +38,23 @@ def initialize_last_fm_user():
     print("Last.fm user exists in database")
 
 
-@asyncio.coroutine
-def initialize_redis_subscriber():
+async def initialize_redis_subscriber():
   last_fm_scrobbler = LastFmScrobbler()
 
-  connection = yield from asyncio_redis.Connection.create(
+  connection = await asyncio_redis.Connection.create(
     host=os.environ.get("REDIS_HOST"),
     port=int(os.environ.get("REDIS_PORT"))
   )
 
-  subscriber = yield from connection.start_subscribe()
-  yield from subscriber.subscribe(
+  subscriber = await connection.start_subscribe()
+  await subscriber.subscribe(
     [
       os.environ.get("REDIS_CHANNEL")
     ]
   )
 
   while True:
-    reply = yield from subscriber.next_published()
+    reply = await subscriber.next_published()
     if reply:
       last_fm_scrobbler.update_now_playing(reply.value)
       last_fm_scrobbler.scrobble()
