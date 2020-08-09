@@ -180,8 +180,7 @@ class HeosTrackListener {
   }
 
   getPlayerPid(data) {
-    const message = data.heos.message.includes('&') ? data.heos.message.split('&').shift() : data.heos.message
-    return message.split('=').pop();
+    return data.heos.message.parsed.pid;
   }
 
   async handleTrackDuration(data) {
@@ -198,7 +197,7 @@ class HeosTrackListener {
         .catch((err) => this.logError(`Error querying track with id ${this.nowPlaying[pid]}`, err));
 
       if (nowPlaying) {
-        nowPlaying.duration = parseInt(data.heos.message.split('&').pop().split('=').pop(), 10) / 1000;
+        nowPlaying.duration = parseInt(data.heos.message.parsed.duration, 10) / 1000;
         nowPlaying.ready.nowPlaying = true;
 
         await nowPlaying.save()

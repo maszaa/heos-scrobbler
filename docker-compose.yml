@@ -11,6 +11,8 @@ services:
       REDIS_CHANNEL: heosScrobbler
     env_file:
       - heos-track-listener/.env
+    volumes:
+      - ./heos-track-listener/package-lock.json:/usr/src/package-lock.json
     restart: always
     network_mode: "host"
     depends_on:

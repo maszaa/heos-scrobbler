@@ -4,15 +4,15 @@
   "description": "Now playing info listener for HEOS scrobbler",
   "main": "index.js",
   "scripts": {
-    "start": "node index.js",
+    "start": "node --unhandled-rejections=strict index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Samuli Kohomäki",
   "license": "MIT",
   "dependencies": {
-    "heos-api": "^3.10.1",
-    "moment": "^2.24.0",
-    "mongoose": "^5.7.5",
-    "redis": "^2.8.0"
+    "heos-api": "^4.0.0",
+    "moment": "^2.27.0",
+    "mongoose": "^5.9.28",
+    "redis": "^3.0.0"
   }
 }
