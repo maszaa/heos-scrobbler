@@ -183,6 +183,11 @@ class HeosTrackListener {
     return data.heos.message.parsed.pid;
   }
 
+  isAllowedTrack(source, ignoreSources) {
+    const checkSource = Array.isArray(ignoreSources);
+    return !checkSource || checkSource && !ignoreSources.find(s => source.toLowerCase().includes(s.toLowerCase()));
+  }
+
   async handleTrackDuration(data) {
     const pid = this.getPlayerPid(data);
 
@@ -257,7 +262,7 @@ class HeosTrackListener {
     })
       .catch((err) => this.logError(`Error querying player with pid ${pid}`, err))
 
-    if (data.type === 'song' || (player && !player.usbAndNetworkOnly)) {
+    if (this.isAllowedTrack(data.mid, player.ignoreSources)) {
       const nowPlaying = await HeosPlayedTrack.create({
         type: data.type,
         source: data.mid,

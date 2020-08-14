@@ -4,10 +4,7 @@ const Schema = mongoose.Schema;
 const heosPlayerSchema = new Schema({
   address: String,
   pid: String,
-  usbAndNetworkOnly: {
-    type: Boolean,
-    default: false
-  },
+  ignoreSources: [String],
   submit: {
     nowPlaying: {
       type: Boolean,
