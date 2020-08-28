@@ -15,6 +15,7 @@ class HeosTrackListener {
   constructor() {
     this.nowPlaying = {};
     this.reconnectingToAddresses = [];
+    this.connectionHeartbeatStatus = {};
 
     this.handlePlayers = this.handlePlayers.bind(this);
     this.handleTrack = this.handleTrack.bind(this);
@@ -55,8 +56,7 @@ class HeosTrackListener {
     if (connection) {
       console.log(`Connected to HEOS device with IP address ${address}`)
 
-      connection.write('system', 'prettify_json_response', { enable: 'on' })
-        .write('system', 'register_for_change_events', { enable: 'on' })
+      connection.write('system', 'register_for_change_events', { enable: 'on' })
         .on({commandGroup: 'player', command: 'get_now_playing_media'}, this.handleTrack)
         .write('player', 'get_players')
         .once({commandGroup: 'player', command: 'get_players'}, this.handlePlayers)
@@ -64,8 +64,14 @@ class HeosTrackListener {
           connection.write('player', 'get_now_playing_media', { pid: this.getPlayerPid(data) });
         })
         .on({commandGroup: 'event', command: 'player_now_playing_progress'}, this.handleTrackDuration)
-        .onClose((err) => {
+        .onClose(async (err) => {
           const message = `Connection to HEOS device with ${address} closed${err ? ' by error' : ''}`;
+          err ? await this.handleConnectionError(
+            connection,
+            address,
+            message,
+            err
+          ) : console.log(message);
         })
         .onError(async (err) => await this.handleConnectionError(
           connection,
@@ -84,20 +90,22 @@ class HeosTrackListener {
   setupDeviceHeartbeat(connection, address) {
     connection.on({commandGroup: 'system', command: 'heart_beat'}, (data) => {
       if (data.heos.result !== 'success') {
-        connection.heartbeatSuccessful = false;
+        this.connectionHeartbeatStatus[connection] = false;
       } else {
-        connection.heartbeatSuccessful = true;
+        this.connectionHeartbeatStatus[connection] = true;
       }
     });
 
     const heartbeat = setInterval(
       async () => {
-        if (connection.hasOwnProperty('heartbeatSuccessful') && !connection.heartbeatSuccessful && !connection.closed) {
-          await this.handleConnectionError(connection, address, `Timeout or error occured while connected to HEOS device with address ${address}`)
-        } else if (!connection.closed) {
-          connection.heartbeatSuccessful = false;
-          connection.write('system', 'heart_beat');
-          return;
+        if (!connection.closed) {
+          if (this.connectionHeartbeatStatus[connection] == false) {
+            await this.handleConnectionError(connection, address, `Timeout or error occured while connected to HEOS device with address ${address}`)
+          } else {
+            this.connectionHeartbeatStatus[connection] = false;
+            connection.write('system', 'heart_beat');
+            return;
+          }
         }
 
         clearInterval(heartbeat);
@@ -110,7 +118,7 @@ class HeosTrackListener {
     const additionalHeosConnectionModificatorPath = path.join(__dirname, 'additional');
 
     fs.readdirSync(additionalHeosConnectionModificatorPath).forEach((file) => {
-      if (file.split('.').pop() === 'js') {
+      if (file.endsWith('.js')) {
         require(path.join(additionalHeosConnectionModificatorPath, file))(connection, this);
         console.log(`Loaded additional HEOS connection modificator: ${file}`);
       }
@@ -139,12 +147,12 @@ class HeosTrackListener {
     const retryOptions = {
       retry: 1,
       interval: parseInt(process.env.HEOS_RECONNECT_INTERVAL || 30000, 10), // ms
-      maxCount: parseInt(process.env.HEOS_RECONNECT_RETRIES || 0, 10) // 0 = disabled
+      maxCount: parseInt(process.env.HEOS_RECONNECT_RETRIES || 0, 10) // 0 = infinite retries
     };
 
     console.log(`Reconnecting to HEOS device with address ${address}`);
 
-    while (!connection && (!retryOptions.maxCount || retryOptions.maxCount && retryOptions.retry <= retryOptions.maxCount)) {
+    while (!connection && (!retryOptions.maxCount || retryOptions.retry <= retryOptions.maxCount)) {
       if (retryOptions.retry - 1) {
         console.log(`Reconnect to ${address} unsuccessful, waiting ${retryOptions.interval / 1000} seconds before next attempt`);
         await sleep(retryOptions.interval);
@@ -163,20 +171,19 @@ class HeosTrackListener {
       {
         message: message,
         error: (
-          err ?
-            {
-              error: err.toString(),
-              file: err.fileName,
-              line: err.lineNumber,
-              column: err.columnNumber
-            } :
-            undefined
+          err ? {
+            error: err.toString(),
+            file: err.fileName,
+            line: err.lineNumber,
+            column: err.columnNumber
+          } :
+          undefined
         ),
         info: data
       }
-    )
-      .catch(console.error);
-    error && console.error(`${error.message}${error.error ? ` - ${error.error.error}` : ''}, id: ${error._id}`);
+    ).catch(console.error);
+
+    if (error) console.error(`${error.message}${error.error ? ` - ${error.error.error}` : ''}, id: ${error._id}`);
   }
 
   getPlayerPid(data) {
@@ -185,7 +192,7 @@ class HeosTrackListener {
 
   isAllowedTrack(source, ignoreSources) {
     const checkSource = Array.isArray(ignoreSources);
-    return !checkSource || checkSource && !ignoreSources.find(s => source.toLowerCase().includes(s.toLowerCase()));
+    return !checkSource || !ignoreSources.find(s => source.toLowerCase().includes(s.toLowerCase()));
   }
 
   async handleTrackDuration(data) {
