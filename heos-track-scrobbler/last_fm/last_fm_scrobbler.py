@@ -81,7 +81,7 @@ class LastFmScrobbler(object):
     try:
       error = Error(
         message=message,
-        error={str(key): value for (key, value) in enumerate(traceback_info.replace("\"", "'").split("\n"))}
+        error={"traceback": traceback_info.replace("\"", "'").split("\n")}
       )
       error.save()
       print("{0}, id: {1}".format(error.message, error.id))
