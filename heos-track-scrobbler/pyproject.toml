@@ -1,0 +1,3 @@
+[tool.autohooks]
+mode = "pythonpath"
+pre-commit = ["autohooks.plugins.black"]

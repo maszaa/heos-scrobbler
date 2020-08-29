@@ -1,0 +1,5 @@
+autohooks==2.2.0
+pylint==2.6.0
+black==20.8b1
+autohooks-plugin-black==1.2.0
+autohooks-plugin-isort==1.0.0
