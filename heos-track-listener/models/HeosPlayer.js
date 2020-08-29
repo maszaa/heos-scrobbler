@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 const Schema = mongoose.Schema;
 
 const heosPlayerSchema = new Schema({
@@ -8,14 +8,14 @@ const heosPlayerSchema = new Schema({
   submit: {
     nowPlaying: {
       type: Boolean,
-      default: false
+      default: false,
     },
     track: {
       type: Boolean,
-      default: false
-    }
+      default: false,
+    },
   },
-  info: Object
+  info: Object,
 });
 
-module.exports = mongoose.model('HeosPlayer', heosPlayerSchema, 'heosPlayers');
+module.exports = mongoose.model("HeosPlayer", heosPlayerSchema, "heosPlayers");
