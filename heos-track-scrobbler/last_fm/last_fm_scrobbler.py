@@ -9,10 +9,7 @@ from models.last_fm_user import LastFmUser
 
 
 class LastFmScrobbler:
-    def __init__(self):
-        self.creating_user = False
-
-    def _get_user(self):
+    def get_user(self):
         try:
             last_fm_user = LastFmUser.objects().first()
 
@@ -39,18 +36,15 @@ class LastFmScrobbler:
                     print(
                         "Last.fm user missing username or password, set them to scrobble"
                     )
-            elif self.creating_user is False:
-                self.creating_user = True
+            else:
                 last_fm_user = LastFmUser()
                 last_fm_user.save()
                 print(
                     "Last.fm user does not exist in database, created a template for user - "
                     "please fill it (username and password)"
                 )
-                self.creating_user = False
             return last_fm_user
         except Exception:
-            self.creating_user = False
             self._log_error("Error occured while getting user", traceback.format_exc())
 
     def _get_last_fm_network(self, last_fm_user=None):
@@ -135,7 +129,7 @@ class LastFmScrobbler:
 
     def scrobble(self):
         try:
-            last_fm_user = self._get_user()
+            last_fm_user = self.get_user()
             last_fm_network = self._get_last_fm_network(last_fm_user)
 
             heos_played_tracks = HeosPlayedTrack.objects(
@@ -185,7 +179,7 @@ class LastFmScrobbler:
 
     def update_now_playing(self, track_id):
         try:
-            last_fm_user = self._get_user()
+            last_fm_user = self.get_user()
             last_fm_network = self._get_last_fm_network(last_fm_user)
 
             heos_played_track = HeosPlayedTrack.objects(

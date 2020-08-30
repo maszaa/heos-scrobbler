@@ -7,7 +7,6 @@ import asyncio_redis
 from mongoengine import connect
 
 from last_fm.last_fm_scrobbler import LastFmScrobbler
-from models.last_fm_user import LastFmUser
 
 
 def initialize_database_connection():
@@ -22,23 +21,7 @@ def initialize_database_connection():
     connect(db=os.environ.get("MONGO_DB"), alias="heosScrobbler", host=mongo_url)
 
 
-def initialize_last_fm_user():
-    last_fm_user = LastFmUser.objects().first()
-
-    if not last_fm_user:
-        last_fm_user = LastFmUser()
-        last_fm_user.save()
-        print(
-            "Last.fm user does not exist in database, created a template for user - "
-            "please fill it (username and password)"
-        )
-    else:
-        print("Last.fm user exists in database")
-
-
-async def initialize_redis_subscriber():
-    last_fm_scrobbler = LastFmScrobbler()
-
+async def initialize_redis_subscriber(last_fm_scrobbler):
     connection = await asyncio_redis.Connection.create(
         host=os.environ.get("REDIS_HOST"), port=int(os.environ.get("REDIS_PORT"))
     )
@@ -56,8 +39,11 @@ async def initialize_redis_subscriber():
 def main():
     try:
         initialize_database_connection()
-        initialize_last_fm_user()
-        asyncio.get_event_loop().run_until_complete(initialize_redis_subscriber())
+        last_fm_scrobbler = LastFmScrobbler()
+        last_fm_scrobbler.get_user()
+        asyncio.get_event_loop().run_until_complete(
+            initialize_redis_subscriber(last_fm_scrobbler)
+        )
     except Exception:
         print(traceback.format_exc())
         sys.exit(1)
