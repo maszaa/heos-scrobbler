@@ -1,0 +1,10 @@
+[MASTER]
+
+load-plugins = pylint_mongoengine
+
+[MESSAGES CONTROL]
+disable = missing-module-docstring,
+  missing-class-docstring,
+  missing-function-docstring,
+  broad-except,
+  no-self-use

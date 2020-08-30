@@ -1,4 +1,4 @@
-from mongoengine import *
+from mongoengine import Document, FloatField, StringField
 
 
 class LastFmUser(Document):

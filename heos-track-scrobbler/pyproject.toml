@@ -1,3 +1,3 @@
 [tool.autohooks]
 mode = "pythonpath"
-pre-commit = ["autohooks.plugins.black"]
+pre-commit = ["autohooks.plugins.black", "autohooks.plugins.pylint"]

@@ -1,4 +1,12 @@
-from mongoengine import *
+from mongoengine import (
+    BooleanField,
+    Document,
+    EmbeddedDocument,
+    EmbeddedDocumentField,
+    FloatField,
+    IntField,
+    StringField,
+)
 
 
 class Submit(EmbeddedDocument):

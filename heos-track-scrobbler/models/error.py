@@ -1,6 +1,6 @@
 import datetime
 
-from mongoengine import *
+from mongoengine import DateTimeField, DictField, Document, IntField, StringField
 
 
 class Error(Document):
