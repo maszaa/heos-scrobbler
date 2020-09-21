@@ -145,6 +145,8 @@ class HeosTrackListener {
             connection.write("system", "heart_beat");
             return;
           }
+        } else {
+          delete this.connectionHeartbeatStatus[connection];
         }
 
         clearInterval(heartbeat);
