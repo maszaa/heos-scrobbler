@@ -306,9 +306,9 @@ class HeosTrackListener {
   async handlePlayers(data) {
     data = data.payload;
 
-    await Promise.all(
-      data.map((player) => {
-        return HeosPlayer.findOneAndUpdate(
+    if (Array.isArray(data)) {
+      data.map(async (player) => {
+        await HeosPlayer.findOneAndUpdate(
           {
             address: player.ip,
             pid: player.pid,
@@ -328,8 +328,8 @@ class HeosTrackListener {
             err
           )
         );
-      })
-    );
+      });
+    }
   }
 
   async handleTrack(data) {
