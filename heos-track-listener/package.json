@@ -13,7 +13,7 @@
   "license": "MIT",
   "dependencies": {
     "heos-api": "^4.0.0",
-    "moment": "^2.27.0",
+    "moment": "^2.29.2",
     "mongoose": "^5.13.9",
     "redis": "^3.1.2"
   },
