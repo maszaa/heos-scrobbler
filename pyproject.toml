@@ -1,0 +1,53 @@
+[project]
+name = "heos-scrobbler"
+version = "0.1.0"
+description = "Update now playing and scrobble tracks listened with HEOS device to Last.fm."
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "dynaconf>=3.2.12",
+    "pydantic>=2.12.3",
+    "pyheos>=1.0.5",
+    "pylast>=6.0.0",
+    "ssdp>=1.3.1",
+]
+
+[dependency-groups]
+dev = [
+    "bandit>=1.8.6",
+    "pre-commit>=4.3.0",
+    "pyright>=1.1.406",
+    "ruff>=0.14.1",
+]
+
+[tool.pyright]
+include = ["main.py", "heos_scrobbler/"]
+exclude = [
+    "**/.venv",
+    "**/venv",
+    "**/__pycache__"
+]
+reportMissingImports = "error"
+reportMissingTypeStubs = false
+pythonVersion = "3.14"
+pythonPlatform = "Windows"
+executionEnvironments = [
+    { root = ".", pythonVersion = "3.14", pythonPlatform = "Windows" },
+    { root = ".", pythonVersion = "3.14", pythonPlatform = "Linux" },
+    { root = ".", pythonVersion = "3.13", pythonPlatform = "Windows" },
+    { root = ".", pythonVersion = "3.13", pythonPlatform = "Linux" }
+]
+
+[tool.bandit]
+exclude_dirs = [".venv"]
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.lint]
+extend-select = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+docstring-code-format = true
+line-ending = "lf"

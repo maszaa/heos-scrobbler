@@ -1,0 +1,15 @@
+.venv/
+venv/
+
+__pycache__/
+*.pyc
+
+.ruff_cache/
+
+.python-version
+
+.idea/
+
+# Ignore dynaconf secret files
+.secrets.*
+!.secrets.toml.example
