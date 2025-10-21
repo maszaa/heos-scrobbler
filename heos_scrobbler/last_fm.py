@@ -1,8 +1,9 @@
 from datetime import datetime
 from typing import Annotated, Optional
 
-from pydantic import validate_call, Field
-from pylast import LastFMNetwork, SessionKeyGenerator, md5 as pylast_md5, NetworkError
+from pydantic import Field, validate_call
+from pylast import LastFMNetwork, NetworkError, SessionKeyGenerator
+from pylast import md5 as pylast_md5
 
 from config import settings
 

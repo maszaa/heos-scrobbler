@@ -1,18 +1,18 @@
 import asyncio
+import dataclasses
 import pprint
 import socket
-import dataclasses
 from logging import getLogger
 from typing import Callable
 
 from pydantic import ValidationError
-from pyheos import Heos, HeosPlayer, const as HeosConstants, HeosNowPlayingMedia
+from pyheos import Heos, HeosNowPlayingMedia, HeosPlayer
+from pyheos import const as HeosConstants
 from ssdp import messages, network
 from ssdp.aio import SSDP
 
 from config import settings
 from heos_scrobbler.last_fm import LastFmScrobbler
-
 
 logger = getLogger(__name__)
 
