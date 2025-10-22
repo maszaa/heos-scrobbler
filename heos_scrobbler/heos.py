@@ -2,6 +2,7 @@ import asyncio
 import dataclasses
 import pprint
 import socket
+import sys
 from datetime import datetime
 from logging import getLogger
 from typing import Any, Callable, Coroutine
@@ -95,9 +96,13 @@ class HeosScrobbler:
 
 async def _discover_heos_devices() -> list[str]:
     loop = asyncio.get_event_loop()
-    transport, protocol = await loop.create_datagram_endpoint(
-        HeosDeviceDiscoveryProtocol, family=socket.AF_INET, local_addr=(socket.gethostname(), 0)
-    )
+
+    if sys.platform == "win32":
+        transport, protocol = await loop.create_datagram_endpoint(
+            HeosDeviceDiscoveryProtocol, family=socket.AF_INET, local_addr=(socket.gethostname(), 0)
+        )
+    else:
+        transport, protocol = await loop.create_datagram_endpoint(HeosDeviceDiscoveryProtocol, family=socket.AF_INET)
 
     m_search_request = messages.SSDPRequest(
         "M-SEARCH",
