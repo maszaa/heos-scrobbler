@@ -2,8 +2,9 @@ import asyncio
 import dataclasses
 import pprint
 import socket
+from datetime import datetime
 from logging import getLogger
-from typing import Callable
+from typing import Any, Callable, Coroutine
 
 from pydantic import ValidationError
 from pyheos import Heos, HeosNowPlayingMedia, HeosPlayer
@@ -12,7 +13,8 @@ from ssdp import messages, network
 from ssdp.aio import SSDP
 
 from config import settings
-from heos_scrobbler.last_fm import LastFmScrobbler
+from heos_scrobbler.last_fm import LastFmScrobbler, LastFmScrobblerRetryableScrobbleException
+from heos_scrobbler.util import retry
 
 logger = getLogger(__name__)
 
@@ -33,40 +35,48 @@ class HeosDeviceDiscoveryProtocol(SSDP):
 
 
 class HeosScrobbler:
-    def __init__(self, heos_player: HeosPlayer, last_fm_scrobbler: LastFmScrobbler):
-        self.heos_player = heos_player
+    def __init__(self, last_fm_scrobbler: LastFmScrobbler):
         self.last_fm_scrobbler: LastFmScrobbler = last_fm_scrobbler
-        self.current_heos_track: HeosNowPlayingMedia = HeosNowPlayingMedia()
+        self.heos_track_to_be_scrobbled: HeosNowPlayingMedia = HeosNowPlayingMedia()
+        self.heos_track_now_playing: HeosNowPlayingMedia = HeosNowPlayingMedia()
 
-    def scrobble(self, heos_track: HeosNowPlayingMedia) -> None:
-        if self.current_heos_track.media_id != heos_track.media_id:
-            if self._can_scrobble_current_track():
-                self._scrobble(dataclasses.replace(self.current_heos_track))
-            self.current_heos_track = dataclasses.replace(heos_track)
+    async def scrobble(self, heos_track: HeosNowPlayingMedia, scrobbled_at: datetime) -> None:
+        copy_for_scrobbling = dataclasses.replace(self.heos_track_to_be_scrobbled)
+        self.heos_track_to_be_scrobbled = dataclasses.replace(heos_track)
+
+        if self.can_scrobble_track(copy_for_scrobbling):
+            await self._scrobble(heos_track=copy_for_scrobbling, scrobbled_at=scrobbled_at)
 
     def update_now_playing(self, heos_track: HeosNowPlayingMedia) -> None:
-        try:
-            self.last_fm_scrobbler.update_now_playing(
-                artist=heos_track.artist or "",
-                track=heos_track.song or "",
-                album=heos_track.album or "",
-            )
-        except ValidationError:
-            logger.info(
-                "Track %s/%s: %s not suitable for now playing", heos_track.artist, heos_track.album, heos_track.song
-            )
+        if self.heos_track_now_playing.media_id != heos_track.media_id and heos_track.duration:
+            self.heos_track_now_playing = dataclasses.replace(heos_track)
 
-    def update_track_progress(self, heos_track: HeosNowPlayingMedia) -> None:
+            try:
+                self.last_fm_scrobbler.update_now_playing(
+                    artist=self.heos_track_now_playing.artist or "",
+                    track=self.heos_track_now_playing.song or "",
+                    duration=self.heos_track_now_playing.duration or 0,
+                    album=self.heos_track_now_playing.album or "",
+                )
+            except ValidationError:
+                logger.info(
+                    "Track %s/%s: %s not suitable for now playing", heos_track.artist, heos_track.album, heos_track.song
+                )
+
+    def handle_progress_for_track_to_be_scrobbled(self, heos_track: HeosNowPlayingMedia) -> None:
         if (
-            self.current_heos_track.media_id is None or self.current_heos_track.media_id == heos_track.media_id
+            self.heos_track_to_be_scrobbled.media_id is None
+            or self.heos_track_to_be_scrobbled.media_id == heos_track.media_id
         ) and heos_track.current_position:
-            self.current_heos_track = dataclasses.replace(heos_track)
+            self.heos_track_to_be_scrobbled = dataclasses.replace(heos_track)
 
-    def _scrobble(self, heos_track: HeosNowPlayingMedia) -> None:
+    @retry(max_delay=settings.retry_scrobble_for_hours * 60 * 60, retry_on=LastFmScrobblerRetryableScrobbleException)
+    async def _scrobble(self, heos_track: HeosNowPlayingMedia, scrobbled_at: datetime) -> None:
         try:
-            self.last_fm_scrobbler.scrobble(
+            await self.last_fm_scrobbler.scrobble(
                 artist=heos_track.artist or "",
                 track=heos_track.song or "",
+                scrobbled_at=scrobbled_at,
                 album=heos_track.album or "",
             )
         except ValidationError:
@@ -74,12 +84,12 @@ class HeosScrobbler:
                 "Track %s/%s: %s not suitable for scrobbling", heos_track.artist, heos_track.album, heos_track.song
             )
 
-    def _can_scrobble_current_track(self) -> bool:
+    @staticmethod
+    def can_scrobble_track(heos_track: HeosNowPlayingMedia) -> bool:
         return (
-            self.current_heos_track.duration is not None
-            and self.current_heos_track.current_position is not None
-            and self.current_heos_track.current_position
-            >= self.current_heos_track.duration * settings.scrobble_length_min_portion
+            heos_track.duration is not None
+            and heos_track.current_position is not None
+            and heos_track.current_position >= heos_track.duration * settings.scrobble_length_min_portion
         )
 
 
@@ -111,13 +121,17 @@ async def _discover_heos_devices() -> list[str]:
 
 def _create_on_heos_player_event_callback(
     heos_player: HeosPlayer, heos_scrobbler: HeosScrobbler
-) -> Callable[[str], None]:
-    def callback(heos_event: str) -> None:
+) -> Callable[[str], Coroutine[Any, Any, None]]:
+    async def callback(heos_event: str) -> None:
         if heos_event == HeosConstants.EVENT_PLAYER_NOW_PLAYING_CHANGED:
-            heos_scrobbler.update_now_playing(heos_player.now_playing_media)
-            heos_scrobbler.scrobble(heos_player.now_playing_media)
+            await heos_scrobbler.scrobble(heos_track=heos_player.now_playing_media, scrobbled_at=datetime.now())
         elif heos_event == HeosConstants.EVENT_PLAYER_NOW_PLAYING_PROGRESS:
-            heos_scrobbler.update_track_progress(heos_player.now_playing_media)
+            # After EVENT_PLAYER_NOW_PLAYING_CHANGED track duration is 0
+            # We need to update duration here for the next track to be scrobbled
+            # so that we can ensure it's been listened enough
+            heos_scrobbler.handle_progress_for_track_to_be_scrobbled(heos_player.now_playing_media)
+            # We need to update now playing here to get proper duration down the line
+            heos_scrobbler.update_now_playing(heos_player.now_playing_media)
 
     return callback
 
@@ -142,7 +156,7 @@ async def initialize_heos_scrobbling() -> None:
         logger.info("HEOS device with IP %s has players %s", heos_device_ip, pprint.pformat(heos_players))
 
         for heos_player in heos_players.values():
-            scrobbler = HeosScrobbler(heos_player=heos_player, last_fm_scrobbler=last_fm_scrobbler)
+            scrobbler = HeosScrobbler(last_fm_scrobbler=last_fm_scrobbler)
             heos_player.add_on_player_event(
                 _create_on_heos_player_event_callback(heos_player=heos_player, heos_scrobbler=scrobbler)
             )

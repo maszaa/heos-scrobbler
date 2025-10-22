@@ -42,6 +42,9 @@ executionEnvironments = [
 [tool.bandit]
 exclude_dirs = [".venv"]
 
+[tool.isort]
+line_length = 120
+
 [tool.ruff]
 line-length = 120
 

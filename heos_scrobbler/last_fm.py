@@ -1,3 +1,4 @@
+import asyncio
 from datetime import datetime
 from typing import Annotated, Optional
 
@@ -37,25 +38,35 @@ class LastFmScrobbler:
         )
 
     @validate_call
-    def scrobble(self, artist: NotEmptyStr, track: NotEmptyStr, album: Optional[str]) -> None:
-        try:
-            self.last_fm_network.scrobble(
-                artist=artist,
-                title=track,
-                timestamp=int(datetime.now().timestamp()),
-                album=album,
-            )
-        except NetworkError as exc:
-            raise LastFmScrobblerRetryableScrobbleException from exc
+    async def scrobble(
+        self, artist: NotEmptyStr, track: NotEmptyStr, scrobbled_at: datetime, album: Optional[str]
+    ) -> None:
+        coroutine = asyncio.to_thread(self._scrobble_sync, artist, track, scrobbled_at, album)
+        task = asyncio.create_task(coroutine)
+        await task
 
     @validate_call
-    def update_now_playing(self, artist: NotEmptyStr, track: NotEmptyStr, album: Optional[str]) -> None:
+    def update_now_playing(self, artist: NotEmptyStr, track: NotEmptyStr, duration: int, album: Optional[str]) -> None:
         try:
             self.last_fm_network.update_now_playing(
                 artist=artist,
                 title=track,
+                duration=duration,
                 album=album,
             )
         except NetworkError:
-            # It's OK if the update request fails, no need to retry
+            # No need to retry as now playing track is relevant only for the duration of it
             pass
+
+    def _scrobble_sync(
+        self, artist: NotEmptyStr, track: NotEmptyStr, scrobbled_at: datetime, album: Optional[str]
+    ) -> None:
+        try:
+            self.last_fm_network.scrobble(
+                artist=artist,
+                title=track,
+                timestamp=int(scrobbled_at.timestamp()),
+                album=album,
+            )
+        except NetworkError as exc:
+            raise LastFmScrobblerRetryableScrobbleException from exc
