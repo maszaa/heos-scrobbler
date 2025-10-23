@@ -1,3 +1,6 @@
+# If you have SSDP issues, set this true
+debug = false
+
 # How much track must have advanced so that it viable for scrobbling?
 # float so 90% is 0.9
 scrobble_length_min_portion = 0.9

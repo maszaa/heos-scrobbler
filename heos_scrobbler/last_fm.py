@@ -1,12 +1,13 @@
 import asyncio
 from datetime import datetime
-from typing import Annotated, Optional
+from typing import Optional
 
-from pydantic import Field, validate_call
+from pydantic import validate_call
 from pylast import LastFMNetwork, NetworkError, SessionKeyGenerator
 from pylast import md5 as pylast_md5
 
 from config import settings
+from heos_scrobbler.util import NotEmptyStr
 
 
 class LastFmScrobblerRetryableScrobbleException(Exception):
@@ -14,28 +15,8 @@ class LastFmScrobblerRetryableScrobbleException(Exception):
 
 
 class LastFmScrobbler:
-    NotEmptyStr = Annotated[str, Field(min_length=1)]
-
     def __init__(self):
         self.last_fm_network: LastFMNetwork = self._create_last_fm_network()
-
-    @staticmethod
-    def _create_last_fm_network() -> LastFMNetwork:
-        temporary_last_fm_network = LastFMNetwork(
-            api_key=settings.last_fm.api_key, api_secret=settings.last_fm.api_secret
-        )
-        session_key = SessionKeyGenerator(temporary_last_fm_network).get_session_key(
-            username=settings.last_fm.username, password_hash=pylast_md5(settings.last_fm.password)
-        )
-
-        if session_key is None:
-            raise RuntimeError("Last.fm session key can't be None")
-
-        return LastFMNetwork(
-            api_key=settings.last_fm.api_key,
-            api_secret=settings.last_fm.api_secret,
-            session_key=session_key,
-        )
 
     @validate_call
     async def scrobble(
@@ -70,3 +51,21 @@ class LastFmScrobbler:
             )
         except NetworkError as exc:
             raise LastFmScrobblerRetryableScrobbleException from exc
+
+    @staticmethod
+    def _create_last_fm_network() -> LastFMNetwork:
+        temporary_last_fm_network = LastFMNetwork(
+            api_key=settings.last_fm.api_key, api_secret=settings.last_fm.api_secret
+        )
+        session_key = SessionKeyGenerator(temporary_last_fm_network).get_session_key(
+            username=settings.last_fm.username, password_hash=pylast_md5(settings.last_fm.password)
+        )
+
+        if session_key is None:
+            raise RuntimeError("Last.fm session key can't be None")
+
+        return LastFMNetwork(
+            api_key=settings.last_fm.api_key,
+            api_secret=settings.last_fm.api_secret,
+            session_key=session_key,
+        )
