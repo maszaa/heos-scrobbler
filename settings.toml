@@ -1,0 +1,18 @@
+# If you have SSDP issues, set this true
+debug = false
+
+# How much track must have advanced so that it viable for scrobbling?
+# float so 90% is 0.9
+scrobble_length_min_portion = 0.9
+# How many hours should a scrobble be retryed if request to Last.fm failed?
+retry_scrobble_for_hours = 72
+
+[heos]
+# Should pyheos automatically reconnect if connection is lost
+auto_reconnect = true
+
+[heos.ssdp]
+# HEOS device indentifier, should not change ever
+st = "urn:schemas-denon-com:device:ACT-Denon:1"
+# Time in seconds to wait discovery responses from the network
+mx = 5

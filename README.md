@@ -1,14 +1,44 @@
-# HEOS scrobbler
+# HEOS Scrobbler
 
-Update now playing and scrobble tracks listened with HEOS device to Last.fm. Tracks to be scrobbled must have artist and title in metadata.
+Update now playing and scrobble tracks listened with HEOS device to Last.fm.
+Tracks to be scrobbled must have artist and title in metadata.
 
-Requirements: Docker, Docker-Compose, Last.fm account & API account (create later here: https://www.last.fm/api/account/create)
+## Requirements:
 
-1. Create `.env` files in subdirectories based on `example.env` files.
-2. `./start.sh`
-3. After the stack has started, visit `<YOUR_MONGO_EXPRESS_HOST>:<YOUR_MONGO_EXPRESS_PORT>` using the username and password you've set and at `heosScrobbler.heosPlayers` setup players and their configuration you want to use for scrobbling. You do not need to restart the stack.
-4. Same address, at `heosScrobbler.lastFmUsers` select the pre-populated user, input your Last.fm username and password and save. `heos-track-scrobbler` will generate a Last.fm session key for your account and delete the password from the database next time it attempts to scrobble (i.e. you've listened a track with your HEOS device). When you change your Last.fm user configuration you don't have to restart the stack
+* HEOS device
+* Python 3 (3.13 and 3.14 tested)
+* [uv](https://docs.astral.sh/uv/) for Python dependency management
+* Last.fm account
+* [Last.fm API account](https://www.last.fm/api/account/create)
 
-You can create custom event handlers and listeners for HEOS connections at `heos-track-listener/heos/additional`. Files ending with `.js` will be loaded during startup. Your handlers and listeners must take the HEOS connetion and optionally now playing listener as parameters. Take a look at the `example.js.txt` at that path.
+## Installation
 
-You can define track sources to be ignored by inserting substrings of sources to `ignoreSources` array of a player document. Substrings are case insensitive. If the source (case insensitive) of the new track contains any of the defined substrings it will not be saved (i.e. scrobbled).
+In project folder
+
+1. `cp .secrets.toml.example .secrets.toml`
+2. Fill your Last.fm details to `.secrets.toml`
+3. `uv sync`
+
+The last command will create a virtualenv `.venv` and install required Python dependencies in that.
+
+### Additional configuration
+
+If you wish to alter default configuration, you can do it via environment variables.
+Use `HEOS_SCROBBLER_` prefix. For example:
+
+```
+export HEOS_SCROBBLER_DEBUG=true
+export HEOS_SCROBBLER_RETRY_SCROBBLE_FOR_HOURS=24
+```
+
+See [Dynaconf documentation](https://www.dynaconf.com/envvars/) for more examples.
+
+## Running
+
+In project folder
+
+`uv run main.py`
+
+## Old implementation
+
+If you need to access the old implementation, it's available in [legacy](https://github.com/maszaa/heos-scrobbler/tree/legacy) branch.
