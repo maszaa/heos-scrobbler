@@ -22,6 +22,8 @@ class LastFmScrobbler:
     async def scrobble(
         self, artist: NotEmptyStr, track: NotEmptyStr, scrobbled_at: datetime, album: Optional[str]
     ) -> None:
+        # pylast is synchronous, but we want to wrap it as asyncio task
+        # so that callers can retry it with delay without blocking
         coroutine = asyncio.to_thread(self._scrobble_sync, artist, track, scrobbled_at, album)
         task = asyncio.create_task(coroutine)
         await task
