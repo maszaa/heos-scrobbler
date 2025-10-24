@@ -86,7 +86,8 @@ class HeosScrobbler:
                 self.last_fm_scrobbler.update_now_playing(
                     artist=heos_track.artist or "",
                     track=heos_track.song or "",
-                    duration=heos_track.duration or 0,
+                    # HEOS uses ms for duration, Last.fm seconds
+                    duration=int(heos_track.duration / 1000) if heos_track.duration else 0,
                     album=heos_track.album or "",
                 )
             except ValidationError:
@@ -143,7 +144,9 @@ def _create_on_heos_player_event_callback(
     heos_player: HeosPlayer, heos_scrobbler: HeosScrobbler
 ) -> Callable[[str], Coroutine[Any, Any, None]]:
     async def callback(heos_event: str) -> None:
+        _logger.debug("Received HEOS event: %s", heos_event)
         heos_track = heos_player.now_playing_media
+        _logger.debug("Current HEOS track: %s", pprint.pformat(heos_track))
 
         if heos_event == HeosConstants.EVENT_PLAYER_NOW_PLAYING_CHANGED:
             await heos_scrobbler.scrobble(heos_track=heos_track, scrobbled_at=datetime.now())
