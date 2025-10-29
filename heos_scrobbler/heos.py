@@ -174,17 +174,27 @@ async def initialize_heos_scrobbling() -> None:
 
     last_fm_scrobbler = LastFmScrobbler()
 
+    # One HEOS device can be used to control all HEOS devices in the same network
+    # Let's still connect to each device directly for reliability
     for heos_device_ip in heos_device_ips:
         heos = await Heos.create_and_connect(heos_device_ip, auto_reconnect=settings.heos.auto_reconnect)
 
         heos_players = await heos.get_players()
         _logger.info("HEOS device with IP %s has players\n%s", heos_device_ip, pprint.pformat(heos_players))
 
-        for heos_player in heos_players.values():
+        try:
+            # Since we connect to each HEOS device directly we are only interested in events of that device
+            heos_player = next(
+                heos_player for heos_player in heos_players.values() if heos_player.ip_address == heos_device_ip
+            )
             scrobbler = HeosScrobbler(last_fm_scrobbler=last_fm_scrobbler)
+
             heos_player.add_on_player_event(
                 _create_on_heos_player_event_callback(heos_player=heos_player, heos_scrobbler=scrobbler)
             )
+
             _logger.info(
                 "Listening player events of HEOS player with id %s and IP %s", heos_player.player_id, heos_device_ip
             )
+        except StopIteration:
+            _logger.info("HEOS device with IP %s does not have player for itself", heos_device_ip)
