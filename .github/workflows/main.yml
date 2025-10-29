@@ -1,0 +1,36 @@
+name: CI
+
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+
+jobs:
+  static-analysis:
+    name: "Check typing, lint and style on Python ${{ matrix.python-version }}"
+    runs-on: "ubuntu-slim"
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [ "3.13", "3.14" ]
+    steps:
+      - uses: actions/checkout@v5
+      - name: "Setup uv"
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "${{ matrix.python-version }}"
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          activate-environment: true
+      - name: "Install dependencies"
+        run: "uv sync"
+      - name: "Cache pre-commit environments"
+        uses: actions/cache@v4
+        with:
+          path: "~/.cache/pre-commit"
+          key: "pre-commit-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('.pre-commit-config.yaml') }}"
+      - name: "Execute static analysis with pre-commit"
+        run: "pre-commit run --color=always --all-files"
