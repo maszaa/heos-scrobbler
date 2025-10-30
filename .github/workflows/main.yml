@@ -34,3 +34,25 @@ jobs:
           key: "pre-commit-${{ runner.os }}-${{ matrix.python-version }}-${{ hashFiles('.pre-commit-config.yaml') }}"
       - name: "Execute static analysis with pre-commit"
         run: "pre-commit run --color=always --all-files"
+  tests:
+    name: "Run tests on Python ${{ matrix.python-version }}"
+    runs-on: "ubuntu-slim"
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: [ "3.13", "3.14" ]
+    steps:
+      - uses: actions/checkout@v5
+      - name: "Setup uv"
+        uses: astral-sh/setup-uv@v7
+        with:
+          python-version: "${{ matrix.python-version }}"
+          enable-cache: true
+          cache-dependency-glob: "uv.lock"
+          activate-environment: true
+      - name: "Install dependencies"
+        run: "uv sync"
+      - name: "Run tests"
+        env:
+          CI: true
+        run: "pytest --cov"
