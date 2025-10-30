@@ -15,9 +15,14 @@ dependencies = [
 [dependency-groups]
 dev = [
     "bandit>=1.8.6",
+    "faker>=37.12.0",
     "isort>=7.0.0",
     "pre-commit>=4.3.0",
     "pyright>=1.1.406",
+    "pytest>=8.4.2",
+    "pytest-asyncio>=1.2.0",
+    "pytest-coverage>=0.0",
+    "pytest-mock>=3.15.1",
     "ruff>=0.14.1",
 ]
 
@@ -40,10 +45,12 @@ executionEnvironments = [
 ]
 
 [tool.bandit]
-exclude_dirs = [".venv"]
+exclude_dirs = [".venv", "tests"]
 
 [tool.isort]
 line_length = 120
+multi_line_output = 3
+include_trailing_comma = true
 
 [tool.ruff]
 line-length = 120
@@ -55,3 +62,15 @@ extend-select = ["E501"]
 quote-style = "double"
 docstring-code-format = true
 line-ending = "lf"
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
+
+[tool.coverage.run]
+source = ["heos_scrobbler"]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+sort = "Name"

@@ -30,7 +30,7 @@ class HeosDeviceDiscoveryProtocol(SSDP):
         _logger.debug("SSDP response received:\n%s\n%s", addr, response)
         self.heos_device_ips.append(str(addr[0]))
 
-    def request_received(self, request: SSDPRequest, addr: Any) -> None:
+    def request_received(self, request: SSDPRequest, addr: Any) -> None:  # pragma: no cover
         _logger.debug("SSDP request received:\n%s\n%s", addr, request)
         pass
 
@@ -108,7 +108,7 @@ class HeosScrobbler:
         )
 
 
-async def _discover_heos_devices() -> list[str]:
+async def _discover_heos_devices() -> list[str]:  # pragma: no cover
     loop = asyncio.get_event_loop()
 
     # On Windows local_addr is required, otherwise "OSError: [WinError 10022] An invalid argument was supplied" occurs
