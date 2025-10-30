@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import Optional
 
 from pydantic import validate_call
-from pylast import LastFMNetwork, NetworkError, SessionKeyGenerator
+from pylast import LastFMNetwork, NetworkError, SessionKeyGenerator, WSError
 from pylast import md5 as pylast_md5
 
 from config import settings
@@ -37,7 +37,7 @@ class LastFmScrobbler:
                 duration=duration,
                 album=album,
             )
-        except NetworkError:
+        except (NetworkError, WSError):
             # No need to retry as now playing track is relevant only for the duration of it
             pass
 
@@ -51,7 +51,7 @@ class LastFmScrobbler:
                 timestamp=int(scrobbled_at.timestamp()),
                 album=album,
             )
-        except NetworkError as exc:
+        except (NetworkError, WSError) as exc:
             raise LastFmScrobblerRetryableScrobbleException from exc
 
     @staticmethod
