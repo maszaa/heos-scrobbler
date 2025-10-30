@@ -1,9 +1,9 @@
 from datetime import datetime
-from typing import Optional, Type
+from typing import Optional, Type, Union
 
 import pytest
 from pydantic import ValidationError
-from pylast import LastFMNetwork, NetworkError
+from pylast import LastFMNetwork, NetworkError, WSError
 from pytest_mock import MockerFixture
 
 from heos_scrobbler.last_fm import LastFmScrobbler, LastFmScrobblerRetryableScrobbleException
@@ -33,7 +33,11 @@ class TestLastFmScrobblerScrobble:
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
         "exception_from_pylast,exception_raised",
-        [(NetworkError("net", None), LastFmScrobblerRetryableScrobbleException), (RuntimeError(), RuntimeError)],
+        [
+            (NetworkError("net", None), LastFmScrobblerRetryableScrobbleException),
+            (WSError("net", "502", None), LastFmScrobblerRetryableScrobbleException),
+            (RuntimeError(), RuntimeError),
+        ],
     )
     async def test_scrobble_raises_on_network_error(
         self, mocker: MockerFixture, exception_from_pylast: Exception, exception_raised: Type[Exception]
@@ -84,7 +88,16 @@ class TestLastFmScrobblerScrobble:
 
 
 class TestLastFmScrobblerUpdateNowPlaying:
-    def test_update_now_playing_swallows_network_error(self, mocker: MockerFixture) -> None:
+    @pytest.mark.parametrize(
+        "exception_from_pylast",
+        [
+            (NetworkError("net", None),),
+            (WSError("net", "502", None),),
+        ],
+    )
+    def test_update_now_playing_swallows_network_error(
+        self, mocker: MockerFixture, exception_from_pylast: Type[Union[NetworkError, WSError]]
+    ) -> None:
         mocker.patch.object(
             LastFmScrobbler,
             "_create_last_fm_network",

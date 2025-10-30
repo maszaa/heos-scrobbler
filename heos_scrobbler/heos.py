@@ -21,7 +21,7 @@ from heos_scrobbler.util import State, retry
 _logger: Final[Logger] = getLogger(__name__)
 
 
-class HeosDeviceDiscoveryProtocol(SSDP):
+class HeosDeviceDiscoveryProtocol(SSDP):  # pragma: no cover
     def __init__(self):
         self.heos_device_ips: list[str] = []
         super().__init__()
@@ -30,7 +30,7 @@ class HeosDeviceDiscoveryProtocol(SSDP):
         _logger.debug("SSDP response received:\n%s\n%s", addr, response)
         self.heos_device_ips.append(str(addr[0]))
 
-    def request_received(self, request: SSDPRequest, addr: Any) -> None:  # pragma: no cover
+    def request_received(self, request: SSDPRequest, addr: Any) -> None:
         _logger.debug("SSDP request received:\n%s\n%s", addr, request)
         pass
 
