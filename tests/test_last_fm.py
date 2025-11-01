@@ -7,15 +7,16 @@ from pylast import LastFMNetwork, NetworkError, WSError
 from pytest_mock import MockerFixture
 
 from heos_scrobbler.last_fm import LastFmScrobbler, LastFmScrobblerRetryableScrobbleException
+from tests.util import integration_test
 
 
 class TestLastFmScrobblerScrobble:
     @pytest.mark.asyncio
-    async def test_scrobble_calls_scrobble_sync(self, mocker: MockerFixture) -> None:
+    async def test_scrobble_calls_scrobble_sync(self, mocker: MockerFixture, last_fm_network: LastFMNetwork) -> None:
         mocker.patch.object(
             LastFmScrobbler,
             "_create_last_fm_network",
-            return_value=LastFMNetwork(api_key="x", api_secret="y", session_key="z"),
+            return_value=last_fm_network,
         )
         scrobble_sync_mock = mocker.patch.object(LastFmScrobbler, "_scrobble_sync", mocker.Mock())
         scrobbler = LastFmScrobbler()
@@ -40,12 +41,16 @@ class TestLastFmScrobblerScrobble:
         ],
     )
     async def test_scrobble_raises_on_network_error(
-        self, mocker: MockerFixture, exception_from_pylast: Exception, exception_raised: Type[Exception]
+        self,
+        mocker: MockerFixture,
+        last_fm_network: LastFMNetwork,
+        exception_from_pylast: Exception,
+        exception_raised: Type[Exception],
     ) -> None:
         mocker.patch.object(
             LastFmScrobbler,
             "_create_last_fm_network",
-            return_value=LastFMNetwork(api_key="x", api_secret="y", session_key="z"),
+            return_value=last_fm_network,
         )
         scrobbler = LastFmScrobbler()
 
@@ -64,12 +69,18 @@ class TestLastFmScrobblerScrobble:
         ],
     )
     async def test_scrobble_validation(
-        self, mocker: MockerFixture, artist: str, track: str, album: str, expect_exception: Optional[Type[Exception]]
+        self,
+        mocker: MockerFixture,
+        last_fm_network: LastFMNetwork,
+        artist: str,
+        track: str,
+        album: str,
+        expect_exception: Optional[Type[Exception]],
     ) -> None:
         mocker.patch.object(
             LastFmScrobbler,
             "_create_last_fm_network",
-            return_value=LastFMNetwork(api_key="x", api_secret="y", session_key="z"),
+            return_value=last_fm_network,
         )
         scrobbler = LastFmScrobbler()
 
@@ -96,12 +107,15 @@ class TestLastFmScrobblerUpdateNowPlaying:
         ],
     )
     def test_update_now_playing_swallows_network_error(
-        self, mocker: MockerFixture, exception_from_pylast: Type[Union[NetworkError, WSError]]
+        self,
+        mocker: MockerFixture,
+        last_fm_network: LastFMNetwork,
+        exception_from_pylast: Type[Union[NetworkError, WSError]],
     ) -> None:
         mocker.patch.object(
             LastFmScrobbler,
             "_create_last_fm_network",
-            return_value=LastFMNetwork(api_key="x", api_secret="y", session_key="z"),
+            return_value=last_fm_network,
         )
         scrobbler = LastFmScrobbler()
 
@@ -121,6 +135,7 @@ class TestLastFmScrobblerUpdateNowPlaying:
     def test_update_now_playing_validation(
         self,
         mocker: MockerFixture,
+        last_fm_network: LastFMNetwork,
         artist: str,
         track: str,
         duration: int,
@@ -130,7 +145,7 @@ class TestLastFmScrobblerUpdateNowPlaying:
         mocker.patch.object(
             LastFmScrobbler,
             "_create_last_fm_network",
-            return_value=LastFMNetwork(api_key="x", api_secret="y", session_key="z"),
+            return_value=last_fm_network,
         )
         scrobbler = LastFmScrobbler()
 
@@ -144,3 +159,10 @@ class TestLastFmScrobblerUpdateNowPlaying:
             scrobbler.update_now_playing(artist=artist, track=track, duration=duration, album=album)
 
             update_now_playing_mock.assert_called_once_with(artist=artist, title=track, duration=duration, album=album)
+
+
+@integration_test
+def test_create_last_fm_network():
+    network = LastFmScrobbler._create_last_fm_network()
+
+    assert network.session_key is not None
